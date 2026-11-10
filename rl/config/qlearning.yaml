@@ -1,0 +1,35 @@
+# Matches sim/room.sdf: world "room", 16 x 12 m, robot spawns at (0, 0) facing +x.
+seed: 0
+episodes: 2000
+max_steps: 500
+action_duration_s: 0.25        # sim time each discrete action runs
+
+actions:                        # Twist sent on /robot/cmd_vel
+  forward:    {linear: 0.25, angular: 0.0}
+  turn_left:  {linear: 0.0,  angular: 0.6}
+  turn_right: {linear: 0.0,  angular: -0.6}
+  stop:       {linear: 0.0,  angular: 0.0}
+
+alpha: 0.1
+gamma: 0.95
+epsilon: {start: 1.0, end: 0.05, decay_episodes: 1500}
+
+capture_distance_m: 0.5
+max_collisions: 3
+collision_range_m: 0.22         # no contact sensor yet: min scan range below this = collision
+
+detector:                       # limited FOV/range NPC detector (lidar max is 6.0 m)
+  range_m: 4.0
+  fov_deg: 90
+
+scan_sectors_deg:               # /robot/scan: 181 beams, -90..+90 deg, index 90 = straight ahead
+  right: [-90, -30]
+  front: [-30, 30]
+  left:  [30, 90]
+obstacle_bins_m: [0.4, 1.0]     # -> near / medium / far
+npc_distance_bins_m: [1.0, 2.5] # -> near / medium / far
+
+exploration_cell_m: 2.0         # coarse regions for the +0.2 bonus (8 x 6 grid)
+
+spawns:                         # learner start poses [x, y, yaw]
+  - [0.0, 0.0, 0.0]

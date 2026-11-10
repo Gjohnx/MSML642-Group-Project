@@ -1,0 +1,11 @@
+# NPC patrol routes for room.sdf, world frame (x, y) in meters; each route loops.
+# Doorways (from partition gaps): storage NW x~-4.25, workshop NE x~2.9 (y=2.35);
+# staging SW x~-2.7, utility SE x~3.6 (y=-2.35). Corridor barrier at x=2, |y|<0.9.
+# Waypoints keep ~0.4 m clearance from obstacles; check them in the GUI once the NPC exists.
+routes:
+  corridor_loop:
+    speed_mps: 0.15
+    waypoints: [[-6.5, -1.6], [5.5, -1.6], [5.5, 1.75], [-6.5, 1.75]]
+  workshop_visit:
+    speed_mps: 0.15
+    waypoints: [[-1.0, 1.6], [2.9, 1.6], [2.9, 3.4], [1.0, 3.4], [2.9, 3.4], [2.9, 1.6]]

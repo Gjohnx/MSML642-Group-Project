@@ -1,0 +1,12 @@
+# Starting values from the proposal; ablations flip the *_enabled flags.
+new_region: 0.2            # once per coarse region per episode
+new_region_enabled: true
+first_detection: 5.0
+rediscovery: 2.0
+rediscovery_enabled: true
+approach_clip: 1.0         # clip(prev_dist - cur_dist, -1, 1), only when visible 2 steps in a row
+lose_target: -1.0
+lost_per_step: -0.05
+collision: -5.0
+capture: 30.0
+time_step: -0.02

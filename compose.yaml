@@ -9,6 +9,8 @@ services:
       LIBGL_ALWAYS_SOFTWARE: "1"
     volumes:
       - ./sim:/project/sim:ro
+      - ./rl:/project/rl:ro
+      - ./experiments:/project/experiments
     working_dir: /project/sim
     command: ["bash", "run.sh"]
 

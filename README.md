@@ -65,3 +65,31 @@ docker compose --profile gui up -d --build
 | `/clock` | `rosgraph_msgs/msg/Clock` | 仿真时钟 |
 
 下一阶段在这个场景中加入巡逻 NPC 和有限视野检测，再把动作、观测及回合重置接入训练代码。
+
+## 项目结构
+
+```
+sim/                  Gazebo 场景与 ROS 2 桥接（容器内只读挂载）
+  room.sdf            地图与学习机器人
+  bridge.yaml         ROS 2 ↔ Gazebo 话题
+  run.sh / gui.sh / view.sh
+  smoke_test.py       运动与雷达验证
+  npc_patrol.py       NPC 巡逻节点（待实现）
+  npc_routes.yaml     NPC 巡逻路线
+rl/                   强化学习代码（挂载到 /project/rl）
+  core/               不依赖 ROS：状态离散化、Q 表、奖励、丢失目标搜索与碰撞恢复、基线策略
+  ros/                env.py（reset/step 接口）、detector.py（有限视野检测）
+  config/             qlearning.yaml、rewards.yaml
+  tests/              core/ 的单元测试
+  train.py / evaluate.py
+experiments/          训练输出（不提交，挂载到 /project/experiments）
+analysis/             报告绘图脚本
+docs/                 提案、报告、图表
+```
+
+`rl/core/` 不导入 `rclpy`，可以不启动仿真直接测试。训练在容器内运行：
+
+```sh
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.train'
+docker compose exec sim bash -c 'cd /project && python3 -m pytest rl/tests'
+```
