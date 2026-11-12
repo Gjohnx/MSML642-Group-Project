@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Training runs stay local; commit final plots to docs/figures/
+experiments/*
+!experiments/.gitkeep
+
+.vscode/
+.idea/
+.DS_Store
