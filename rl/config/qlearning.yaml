@@ -16,18 +16,28 @@ epsilon: {start: 1.0, end: 0.05, decay_episodes: 1500}
 
 capture_distance_m: 0.5
 max_collisions: 3
-collision_range_m: 0.22         # no contact sensor yet: min scan range below this = collision
+collision_range_m: 0.22         # fallback until the contact sensor exists: min scan range below this = collision
 
 detector:                       # limited FOV/range NPC detector (lidar max is 6.0 m)
   range_m: 4.0
   fov_deg: 90
 
-scan_sectors_deg:               # /robot/scan: 181 beams, -90..+90 deg, index 90 = straight ahead
-  right: [-90, -30]
-  front: [-30, 30]
-  left:  [30, 90]
+# Lidar sectors (front +-25 deg, left/right +-30 deg around +-90, rear) are
+# defined in rl/core/geometry.py SECTORS.
 obstacle_bins_m: [0.4, 1.0]     # -> near / medium / far
 npc_distance_bins_m: [1.0, 2.5] # -> near / medium / far
+npc_front_half_deg: 15          # NPC bearing within +-15 deg = FRONT
+
+safety:                         # stop distances, see behaviors.SafetyConfig
+  robot_width_m: 0.33
+  clearance_margin: 0.12
+recovery:                       # see behaviors.CollisionRecovery
+  backup_speed: 0.10
+  max_backup_m: 0.20
+  turn_deg: 35
+lost_search:
+  scan_steps: 20                # ~180 deg of turning at 0.6 rad/s x 0.25 s
+  explore_front_m: 1.0
 
 exploration_cell_m: 2.0         # coarse regions for the +0.2 bonus (8 x 6 grid)
 
