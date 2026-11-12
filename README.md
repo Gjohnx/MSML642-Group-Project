@@ -1,12 +1,12 @@
-# MSML642 机器人搜索与追踪
+# MSML642 Robot Search and Tracking
 
-场景是一个 16 × 12 米的室内设施，中间走廊连通四个带门洞的区域。隔墙、挡板、木箱、油桶、柜子和工作台可参与碰撞及测距。蓝色差速机器人从走廊中间起步，带有 180° 激光测距。Docker Desktop 使用 Linux 容器运行 Ubuntu 24.04、ROS 2 Jazzy 和 Gazebo Harmonic。Gazebo 使用无界面软件渲染，ROS 2 命令在容器内执行。
+The scene is a 16 × 12 m indoor facility. A central corridor connects four areas through doorways. Partitions, barriers, crates, drums, cabinets and a workbench all take part in collisions and range sensing. A blue differential-drive robot starts in the middle of the corridor and carries a 180° laser rangefinder. Docker Desktop runs Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic in a Linux container. Gazebo uses headless software rendering, and ROS 2 commands run inside the container.
 
-## 组员快速开始
+## Quick start for team members
 
-先安装 Git 和带有 Docker Compose 的 Docker。Windows 用户请启动 Docker Desktop，并使用 Linux 容器。首次启动需要联网下载镜像和依赖。
+Install Git and Docker with Docker Compose. Windows users should start Docker Desktop and use Linux containers. The first start needs an internet connection to download the image and dependencies.
 
-在终端中执行：
+In a terminal, run:
 
 ```sh
 git clone https://github.com/Gjohnx/MSML642-Group-Project.git
@@ -14,80 +14,81 @@ cd MSML642-Group-Project
 docker compose --profile gui up -d --build
 ```
 
-容器启动后，在本机浏览器打开 [Gazebo 图形界面](http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=scale)。Compose 会启动仿真和浏览器界面，ROS 2 和 Gazebo 都在容器内运行。
+Once the containers are up, open the [Gazebo GUI](http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=scale) in your browser. Compose starts both the simulation and the browser GUI; ROS 2 and Gazebo run inside the containers.
 
-## 启动与验证
+## Start and verify
 
-如果只需要运行无界面仿真，在仓库根目录执行：
+To run only the headless simulation, run this from the repository root:
 
 ```sh
 docker compose up -d --build
 docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && python3 smoke_test.py'
 ```
 
-验证脚本从初始位置发出前进、左转、右转和停止命令。它检查里程计和雷达读数，成功时打印 `PASS`。每次重新验证前，执行 `docker compose restart sim` 把机器人放回初始位置。
+The smoke test sends forward, turn-left, turn-right and stop commands from the starting position. It checks the odometry and lidar readings and prints `PASS` on success. Before each re-run, run `docker compose restart sim` to put the robot back at its starting position.
 
-查看日志或关闭仿真：
+View logs or shut down the simulation:
 
 ```powershell
 docker compose logs sim
 docker compose down
 ```
 
-## 查看 Gazebo 图形界面
+## Viewing the Gazebo GUI
 
-### Windows 桌面窗口
+### Windows desktop window
 
-启动 Docker Desktop，在项目目录执行：
+Start Docker Desktop, then run this in the project folder:
 
 ```powershell
 docker compose up -d --build desktop
 ```
 
-在启用了 WSLg 的 Docker Desktop WSL 2 环境中，这条命令会弹出独立的 Gazebo Sim 窗口。窗口默认从斜上方俯瞰地图。关闭窗口后可再运行同一命令打开，也可以用 `docker compose stop desktop` 结束桌面界面。
+In a Docker Desktop WSL 2 environment with WSLg enabled, this opens a standalone Gazebo Sim window. The window shows the map from an angled overhead view by default. After closing the window, run the same command to reopen it, or run `docker compose stop desktop` to stop the desktop GUI.
 
-### 浏览器
+### Browser
 
 ```powershell
 docker compose --profile gui up -d --build
 ```
 
-在 Windows 浏览器打开 [Gazebo 图形界面](http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=scale)。保留窗口，在 PowerShell 中运行上面的验证脚本即可观察机器人动作。关闭浏览器界面服务可执行 `docker compose stop viewer`。
+Open the [Gazebo GUI](http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=scale) in your Windows browser. Keep the window open and run the smoke test above in PowerShell to watch the robot move. To stop the browser GUI service, run `docker compose stop viewer`.
 
 
-## ROS 2 接口
+## ROS 2 interface
 
-| 话题 | 类型 | 用途 |
+| Topic | Type | Purpose |
 | --- | --- | --- |
-| `/robot/cmd_vel` | `geometry_msgs/msg/Twist` | 前进、转向和停止 |
-| `/robot/odom` | `nav_msgs/msg/Odometry` | 机器人里程计 |
-| `/robot/scan` | `sensor_msgs/msg/LaserScan` | 激光测距 |
-| `/clock` | `rosgraph_msgs/msg/Clock` | 仿真时钟 |
+| `/robot/cmd_vel` | `geometry_msgs/msg/Twist` | Forward, turn and stop |
+| `/robot/odom` | `nav_msgs/msg/Odometry` | Robot odometry |
+| `/robot/scan` | `sensor_msgs/msg/LaserScan` | Laser range scan |
+| `/clock` | `rosgraph_msgs/msg/Clock` | Simulation clock |
 
-下一阶段在这个场景中加入巡逻 NPC 和有限视野检测，再把动作、观测及回合重置接入训练代码。
+The next stage adds a patrolling NPC and limited field-of-view detection to this scene, then connects actions, observations and episode reset to the training code.
 
-## 项目结构
+## Project structure
 
 ```
-sim/                  Gazebo 场景与 ROS 2 桥接（容器内只读挂载）
-  room.sdf            地图与学习机器人
-  bridge.yaml         ROS 2 ↔ Gazebo 话题
+sim/                  Gazebo scene and ROS 2 bridge (mounted read-only in the container)
+  room.sdf            Map and learner robot
+  bridge.yaml         ROS 2 <-> Gazebo topics
   run.sh / gui.sh / view.sh
-  smoke_test.py       运动与雷达验证
-  npc_patrol.py       NPC 巡逻节点（待实现）
-  npc_routes.yaml     NPC 巡逻路线
-rl/                   强化学习代码（挂载到 /project/rl）
-  core/               不依赖 ROS：状态离散化、Q 表、奖励、丢失目标搜索与碰撞恢复、基线策略
-  ros/                env.py（reset/step 接口）、detector.py（有限视野检测）
-  config/             qlearning.yaml、rewards.yaml
-  tests/              core/ 的单元测试
+  smoke_test.py       Motion and lidar check
+  npc_patrol.py       NPC patrol node (to be implemented)
+  npc_routes.yaml     NPC patrol routes
+rl/                   Reinforcement learning code (mounted at /project/rl)
+  core/               ROS-free: state discretization, Q-table, rewards,
+                      lost-target search, collision recovery, baselines
+  ros/                env.py (reset/step interface), detector.py (limited-FOV detector)
+  config/             qlearning.yaml, rewards.yaml
+  tests/              Unit tests for core/
   train.py / evaluate.py
-experiments/          训练输出（不提交，挂载到 /project/experiments）
-analysis/             报告绘图脚本
-docs/                 提案、报告、图表
+experiments/          Training outputs (not committed; mounted at /project/experiments)
+analysis/             Plotting scripts for the report
+docs/                 Proposal, report, figures
 ```
 
-`rl/core/` 不导入 `rclpy`，可以不启动仿真直接测试。训练在容器内运行：
+`rl/core/` does not import `rclpy`, so it can be tested without starting the simulation. Training runs inside the container:
 
 ```sh
 docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.train'
