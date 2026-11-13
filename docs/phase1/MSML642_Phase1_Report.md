@@ -2,7 +2,6 @@
 
 MSML642 Phase 1 Progress Report
 Jianjiong Xiang and Linfeng Cheng
-November 12 2026
 
 ## Current progress
 
@@ -11,6 +10,8 @@ We have a working Gazebo environment and a ROS 2 interface for our search-and-tr
 Our project still follows the proposal. We use tabular Q-learning with four actions and local observations. The rule-based capture is an integration check. Learning a reliable search-and-tracking policy is the next part of the work.
 
 ## Simulation and programming setup
+
+We migrated relevant code from HW3 and adapted it for this project. We reused the parts that fit our robot control and learning setup, then connected them to the Gazebo search-and-tracking environment.
 
 The environment runs in Docker with Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic. The repository includes the Dockerfile, Compose configuration and startup scripts, so a teammate can clone the project and launch the same environment. The Gazebo GUI is available in a browser through the viewer container.
 
