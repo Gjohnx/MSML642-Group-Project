@@ -1,6 +1,6 @@
 # Phase 1 evidence
 
-MSML642_Phase1_Report.pdf is the two-page progress report. The matching Markdown file is editable source. MSML642_Phase1_Demo.mp4 is a 60-second recording with captions. It contains 34 seconds from a rule-based capture run, 20 seconds from an early Q-learning training episode, and a six-second check summary. There is no narration.
+MSML642_Phase1_Report.pdf is the two-page progress report. The matching Markdown file is editable source. MSML642_Phase1_Demo.mp4 is a 54-second recording of the Gazebo GUI. It contains 34 seconds from a rule-based capture run followed by 20 seconds from an early Q-learning training episode. There are no captions, title cards or narration.
 
 The rule-based video run starts at [-3, 1.6, 0] with the NPC initially visible on workshop_visit. It captured the NPC after 83 actions and 25.636 simulation seconds, with zero separate collisions. The report JSON and episode CSV are in evidence/phase1_demo_rule.
 
