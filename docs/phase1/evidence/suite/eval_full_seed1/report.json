@@ -1,0 +1,166 @@
+{
+ "schema": "msml642-chase-evaluation-v1",
+ "policy": "experiments/final/suite_smoke/train_full_seed1/q_table.npy",
+ "command": "/project/rl/evaluate.py --max-steps 60 --seed 1 --episodes 2 --policy experiments/final/suite_smoke/train_full_seed1/q_table.npy --output experiments/final/suite_smoke/eval_full_seed1",
+ "elapsed_wall_s": 11.084,
+ "elapsed_sim_s": 37.332,
+ "config": {
+  "environment": {
+   "seed": 1,
+   "episodes": 2,
+   "max_steps": 60,
+   "action_duration_s": 0.25,
+   "actions": {
+    "forward": {
+     "linear": 0.25,
+     "angular": 0.0
+    },
+    "turn_left": {
+     "linear": 0.0,
+     "angular": 0.6
+    },
+    "turn_right": {
+     "linear": 0.0,
+     "angular": -0.6
+    },
+    "stop": {
+     "linear": 0.0,
+     "angular": 0.0
+    }
+   },
+   "alpha": 0.1,
+   "gamma": 0.95,
+   "epsilon": {
+    "start": 1.0,
+    "end": 0.05,
+    "decay_episodes": 1500
+   },
+   "capture_distance_m": 0.5,
+   "max_collisions": 3,
+   "detector": {
+    "range_m": 4.0,
+    "fov_deg": 90
+   },
+   "obstacle_bins_m": [
+    0.4,
+    1.0
+   ],
+   "npc_distance_bins_m": [
+    1.0,
+    2.5
+   ],
+   "npc_front_half_deg": 15,
+   "safety": {
+    "robot_width_m": 0.33,
+    "clearance_margin": 0.12
+   },
+   "recovery": {
+    "backup_speed": 0.1,
+    "max_backup_m": 0.2,
+    "turn_deg": 35
+   },
+   "lost_search": {
+    "scan_steps": 20,
+    "explore_front_m": 1.0
+   },
+   "exploration_cell_m": 2.0,
+   "spawns": [
+    [
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     -3.0,
+     -1.5,
+     0.0
+    ],
+    [
+     1.0,
+     1.5,
+     3.14159
+    ]
+   ],
+   "routes": [
+    "workshop_visit",
+    "corridor_loop"
+   ],
+   "lost_search_enabled": true
+  },
+  "rewards": {
+   "new_region": 0.2,
+   "new_region_enabled": true,
+   "first_detection": 5.0,
+   "rediscovery": 2.0,
+   "rediscovery_enabled": true,
+   "approach_clip": 1.0,
+   "lose_target": -1.0,
+   "lost_per_step": -0.05,
+   "collision": -5.0,
+   "capture": 30.0,
+   "time_step": -0.02,
+   "rediscovery_min_lost_steps": 5,
+   "max_rediscovery_rewards": 3
+  }
+ },
+ "summary": {
+  "episodes": 2,
+  "capture_rate": 0.0,
+  "mean_steps_to_first_detection": 5.0,
+  "mean_sim_s_to_first_detection": 1.546999999999997,
+  "mean_steps_to_capture": null,
+  "mean_sim_s_to_capture": null,
+  "mean_collisions": 0.0,
+  "rediscovery_rate": 1.0,
+  "mean_return": 1.8851535898691547,
+  "detection_rate": 1.0
+ },
+ "episodes": [
+  {
+   "episode": 0,
+   "seed": 1,
+   "spawn": "[0.0, 0.0, 0.0]",
+   "route": "workshop_visit",
+   "policy": "qlearning",
+   "steps": 60,
+   "episode_return": -2.0221687926643437,
+   "path_length_m": 1.4748846021210082,
+   "collisions": 0,
+   "captured": false,
+   "capture_step": null,
+   "first_detection_step": 8,
+   "losses": 6,
+   "rediscoveries": 6,
+   "regions_visited": 2,
+   "termination": "step_limit",
+   "first_sim_s": 476.714,
+   "last_sim_s": 495.414,
+   "first_detection_sim_s": 479.196,
+   "capture_sim_s": null,
+   "sim_elapsed_s": 18.69999999999999
+  },
+  {
+   "episode": 1,
+   "seed": 1,
+   "spawn": "[-3.0, -1.5, 0.0]",
+   "route": "workshop_visit",
+   "policy": "qlearning",
+   "steps": 60,
+   "episode_return": 5.792475972402653,
+   "path_length_m": 3.5492399977587743,
+   "collisions": 0,
+   "captured": false,
+   "capture_step": null,
+   "first_detection_step": 2,
+   "losses": 0,
+   "rediscoveries": 0,
+   "regions_visited": 3,
+   "termination": "step_limit",
+   "first_sim_s": 497.624,
+   "last_sim_s": 516.256,
+   "first_detection_sim_s": 498.236,
+   "capture_sim_s": null,
+   "sim_elapsed_s": 18.631999999999948
+  }
+ ]
+}

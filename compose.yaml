@@ -5,11 +5,14 @@ services:
       target: runtime
     init: true
     environment:
+      PYTHONPATH: /project
       GZ_PARTITION: msml642
       LIBGL_ALWAYS_SOFTWARE: "1"
     volumes:
       - ./sim:/project/sim:ro
       - ./rl:/project/rl:ro
+      - ./analysis:/project/analysis:ro
+      - ./docs:/project/docs
       - ./experiments:/project/experiments
     working_dir: /project/sim
     command: ["bash", "run.sh"]
@@ -23,6 +26,7 @@ services:
       - sim
     init: true
     environment:
+      GAZEBO_DEMO_VIEW: ${GAZEBO_DEMO_VIEW:-0}
       DISPLAY: ":99"
       GZ_PARTITION: msml642
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -31,6 +35,7 @@ services:
       - "127.0.0.1:6080:6080"
     volumes:
       - ./sim:/project/sim:ro
+      - ./experiments:/project/experiments
     working_dir: /project/sim
     command: ["bash", "view.sh"]
 

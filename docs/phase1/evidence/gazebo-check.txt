@@ -1,0 +1,1 @@
+PASS: visible/hidden/occluded target, reset, moving-target capture, contact and recovery

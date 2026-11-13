@@ -1,47 +1,9 @@
-# Sim changes needed before training
+# Simulation integration
 
-Three additions to `sim/room.sdf` and `sim/bridge.yaml` that `rl/ros/env.py` depends on.
+The blue learner and red NPC are differential-drive robots. The learner has a 180-degree lidar and a body contact sensor. The NPC follows a configured waypoint loop.
 
-**1. World systems.** `Contact` is required for contact sensors; `UserCommands` provides `/world/room/set_pose` for fast episode resets. Add next to the other `<plugin>` lines in `room.sdf`:
+The world loads Physics, SceneBroadcaster, Sensors, UserCommands and Contact. UserCommands provides /world/room/set_pose for episode resets. The bridge publishes wheel odometry, lidar, contact events and world-frame ground truth. Ground truth is used by the limited-FOV sensor simulator, reset checks and experiment metrics. Policy state contains only the discrete local observations from the proposal.
 
-```xml
-<plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
-<plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact"/>
-```
+ChaseEnv pauses patrol, stops both robots, sets their poses, waits for the ROS bridge to report those poses, then settles the physics and resumes patrol. Post-action observations must have fresh timestamps. A failed reset or stalled simulation raises an error.
 
-**2. Contact sensor on the learner.** Inside `<link name="base">` of the `robot` model:
-
-```xml
-<sensor name="contact" type="contact">
-  <always_on>true</always_on>
-  <update_rate>50</update_rate>
-  <topic>/robot/contact</topic>
-  <contact><collision>body</collision></contact>
-</sensor>
-```
-
-and in `bridge.yaml`:
-
-```yaml
-- ros_topic_name: /robot/contact
-  gz_topic_name: /robot/contact
-  ros_type_name: ros_gz_interfaces/msg/Contacts
-  gz_type_name: gz.msgs.Contacts
-  direction: GZ_TO_ROS
-```
-
-**3. True-pose odometry on the NPC**, so the detector and capture check get its position without wheel drift:
-
-```xml
-<plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
-  <odom_frame>world</odom_frame>
-  <robot_base_frame>npc</robot_base_frame>
-  <odom_topic>/npc/odom</odom_topic>
-  <odom_publish_frequency>30</odom_publish_frequency>
-  <dimensions>2</dimensions>
-</plugin>
-```
-
-plus a `/npc/odom` entry in `bridge.yaml` (`nav_msgs/msg/Odometry` / `gz.msgs.Odometry`, `GZ_TO_ROS`).
-
-**Optional: 360° lidar** (`min_angle -3.14159`, `max_angle 3.14159`, ~360 samples). This gives collision recovery a rear reading; without it the robot turns in place instead of backing up.
+The patrol node accepts route names or "pause" on /npc/route. Only one training or evaluation process should control the simulation at a time. The browser GUI may remain open during experiments.

@@ -16,7 +16,6 @@ epsilon: {start: 1.0, end: 0.05, decay_episodes: 1500}
 
 capture_distance_m: 0.5
 max_collisions: 3
-collision_range_m: 0.22         # fallback until the contact sensor exists: min scan range below this = collision
 
 detector:                       # limited FOV/range NPC detector (lidar max is 6.0 m)
   range_m: 4.0
@@ -43,3 +42,7 @@ exploration_cell_m: 2.0         # coarse regions for the +0.2 bonus (8 x 6 grid)
 
 spawns:                         # learner start poses [x, y, yaw]
   - [0.0, 0.0, 0.0]
+  - [-3.0, -1.5, 0.0]
+  - [1.0, 1.5, 3.14159]
+
+routes: [workshop_visit, corridor_loop]

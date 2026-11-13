@@ -38,6 +38,16 @@ class EpisodeMetrics:
     _was_visible: bool = field(default=False, repr=False)
     _regions: set = field(default_factory=set, repr=False)
 
+    def begin(self, *, visible, region, sim_s, reward):
+        """Register initial visibility without inventing an action at step zero."""
+        self._regions.add(region)
+        self.regions_visited = len(self._regions)
+        self.episode_return += reward
+        self._was_visible = visible
+        if visible:
+            self.first_detection_step = 0
+            self.first_detection_sim_s = sim_s
+
     def observe_pose(self, x: float, y: float, sim_s: float | None = None) -> None:
         if not (math.isfinite(x) and math.isfinite(y)):
             raise ValueError("pose must be finite")

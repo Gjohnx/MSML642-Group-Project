@@ -1,0 +1,7 @@
+episode,seed,spawn,route,policy,steps,episode_return,path_length_m,collisions,captured,capture_step,first_detection_step,losses,rediscoveries,regions_visited,termination,first_sim_s,last_sim_s,first_detection_sim_s,capture_sim_s,sim_elapsed_s
+0,0,"[0.0, 0.0, 0.0]",workshop_visit,RuleBasedTracker,20,-1.0000000000000004,1.2400537498358648,0,False,,,0,0,2,step_limit,1212.44,1218.696,,,6.255999999999858
+1,0,"[-3.0, -1.5, 0.0]",workshop_visit,RuleBasedTracker,20,-1.0000000000000004,1.254675797306171,0,False,,,0,0,2,step_limit,1220.804,1227.026,,,6.22199999999998
+2,0,"[1.0, 1.5, 3.14159]",workshop_visit,RuleBasedTracker,15,36.466907007923936,0.9060602734645947,0,True,15,0,0,0,1,capture,1229.1,1233.724,1229.1,1233.724,4.624000000000024
+3,0,"[0.0, 0.0, 0.0]",corridor_loop,RuleBasedTracker,20,-1.0000000000000004,1.2802818272700691,0,False,,,0,0,2,step_limit,1235.934,1242.326,,,6.392000000000053
+4,0,"[-3.0, -1.5, 0.0]",corridor_loop,RuleBasedTracker,20,-1.0000000000000004,1.2790387845006455,0,False,,,0,0,2,step_limit,1244.434,1250.826,,,6.392000000000053
+5,0,"[1.0, 1.5, 3.14159]",corridor_loop,RuleBasedTracker,20,-1.0000000000000004,1.2636459562980091,0,False,,,0,0,2,step_limit,1253.036,1259.326,,,6.289999999999964

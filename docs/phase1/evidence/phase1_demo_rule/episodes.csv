@@ -1,0 +1,2 @@
+episode,seed,spawn,route,policy,steps,episode_return,path_length_m,collisions,captured,capture_step,first_detection_step,losses,rediscoveries,regions_visited,termination,first_sim_s,last_sim_s,first_detection_sim_s,capture_sim_s,sim_elapsed_s
+0,0,"[-3.0, 1.6, 0.0]",workshop_visit,RuleBasedTracker,83,35.67967841869419,5.295089330865949,0,True,83,0,0,0,4,capture,15.504,41.14,15.504,41.14,25.636000000000003

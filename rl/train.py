@@ -1,15 +1,9 @@
-"""Train the Q-learning agent against the running sim.
-
-    docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && \
-        python3 -m rl.train --config rl/config/qlearning.yaml --rewards rl/config/rewards.yaml --seed 0'
-
-Writes experiments/<date>_<name>_seed<k>/: config copy, q_table.npy,
-episodes.csv (captured, steps, collisions, time_to_detect, rediscoveries, return).
-"""
+"""Train tabular Q-learning on the Gazebo search-and-tracking task."""
+from rl.runner import parser, run
 
 
 def main():
-    raise NotImplementedError
+    run(parser(training=True).parse_args(), training=True)
 
 
 if __name__ == "__main__":

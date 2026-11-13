@@ -18,6 +18,8 @@ def detect(learner_pose, npc_xy, rays, range_m: float, fov_deg: float,
     lidar_offset_m: the lidar sits 0.12 m ahead of the base origin (sim/room.sdf),
     so ranges are compared from the lidar position.
     """
+    if not rays:
+        return False, None, None
     bearing, distance = world_to_robot(learner_pose, npc_xy)
     if distance > range_m or abs(bearing) > math.radians(fov_deg) / 2.0:
         return False, None, None

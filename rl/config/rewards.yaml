@@ -10,3 +10,7 @@ lost_per_step: -0.05
 collision: -5.0
 capture: 30.0
 time_step: -0.02
+
+# Ignore brief visibility flicker when awarding a rediscovery.
+rediscovery_min_lost_steps: 5
+max_rediscovery_rewards: 3

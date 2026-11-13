@@ -7,7 +7,7 @@ rediscovery rate and average episode reward.
 The report carries a schema tag, the command that produced it, and both
 wall and sim elapsed time, so results from different machines can be
 compared on sim time.
-summarize() and write_report() work now; running episodes needs rl.ros.env.
+All policies use the same Gazebo environment, sensor limits and recovery routine.
 """
 
 import json
@@ -73,7 +73,8 @@ def write_report(report: dict, path) -> None:
 
 
 def main():
-    raise NotImplementedError("needs rl.ros.env.ChaseEnv (NPC + reset in the sim first)")
+    from rl.runner import parser, run
+    run(parser().parse_args())
 
 
 if __name__ == "__main__":
