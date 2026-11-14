@@ -1,3 +1,6 @@
+https://github.com/Gjohnx/MSML642-Group-Project
+
+
 # Robotic Search and Tracking Using Q Learning in Gazebo
 
 MSML642 Phase 1 Progress Report
@@ -38,5 +41,3 @@ For Phase 2, we will train for longer, evaluate the same start points and routes
 ## Code and evidence
 
 The Phase 1 video shows a rule-based capture and an early Q-learning training segment, both recorded from the running Gazebo GUI.
-
-https://github.com/Gjohnx/MSML642-Group-Project
