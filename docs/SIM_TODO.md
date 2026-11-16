@@ -1,6 +1,6 @@
 # Simulation integration
 
-The blue learner and red NPC are differential-drive robots. The learner has a 180-degree lidar and a body contact sensor. The NPC follows a configured waypoint loop.
+The blue learner and red NPC are differential-drive robots. The learner has a 360-degree lidar and a body contact sensor. The NPC follows a configured waypoint loop.
 
 The world loads Physics, SceneBroadcaster, Sensors, UserCommands and Contact. UserCommands provides /world/room/set_pose for episode resets. The bridge publishes wheel odometry, lidar, contact events and world-frame ground truth. Ground truth is used by the limited-FOV sensor simulator, reset checks and experiment metrics. Policy state contains only the discrete local observations from the proposal.
 

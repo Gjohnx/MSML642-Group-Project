@@ -6,89 +6,120 @@ collisions, rediscoveries, path length and return.
 """
 
 import math
-from dataclasses import asdict, dataclass, field
 
 
-@dataclass
+# collects the measurements of one episode
 class EpisodeMetrics:
-    episode: int = 0
-    seed: int = 0
-    spawn: str = ""
-    route: str = ""
-    policy: str = ""
+    def __init__(self, episode=0, seed=0, spawn="", route="", policy=""):
+        # run labels
+        self.episode = episode
+        self.seed = seed
+        self.spawn = spawn
+        self.route = route
+        self.policy = policy
 
-    steps: int = 0
-    episode_return: float = 0.0
-    path_length_m: float = 0.0
-    collisions: int = 0
-    captured: bool = False
-    capture_step: int | None = None
-    first_detection_step: int | None = None
-    losses: int = 0
-    rediscoveries: int = 0
-    regions_visited: int = 0
-    termination: str = ""             # capture / collisions / step_limit
+        # step counters
+        self.steps = 0
+        self.episode_return = 0.0
+        self.path_length_m = 0.0
+        self.collisions = 0
+        self.captured = False
+        self.capture_step = None
+        self.first_detection_step = None
+        self.losses = 0
+        self.rediscoveries = 0
+        self.regions_visited = 0
+        # capture / collisions / step_limit
+        self.termination = ""
 
-    first_sim_s: float | None = None
-    last_sim_s: float | None = None
-    first_detection_sim_s: float | None = None
-    capture_sim_s: float | None = None
+        # simulation times
+        self.first_sim_s = None
+        self.last_sim_s = None
+        self.first_detection_sim_s = None
+        self.capture_sim_s = None
 
-    _previous_xy: tuple | None = field(default=None, repr=False)
-    _was_visible: bool = field(default=False, repr=False)
-    _regions: set = field(default_factory=set, repr=False)
+        # bookkeeping, not part of the saved row
+        self.previous_xy = None
+        self.was_visible = False
+        self.regions = set()
 
-    def begin(self, *, visible, region, sim_s, reward):
-        """Register initial visibility without inventing an action at step zero."""
-        self._regions.add(region)
-        self.regions_visited = len(self._regions)
+    # registers the reset observation without inventing an action at step zero
+    def begin(self, visible, region, sim_s, reward):
+        self.regions.add(region)
+        self.regions_visited = len(self.regions)
         self.episode_return += reward
-        self._was_visible = visible
+        self.was_visible = visible
         if visible:
             self.first_detection_step = 0
             self.first_detection_sim_s = sim_s
 
-    def observe_pose(self, x: float, y: float, sim_s: float | None = None) -> None:
-        if not (math.isfinite(x) and math.isfinite(y)):
+    # adds the distance moved since the last pose and tracks the sim time
+    def observe_pose(self, x, y, sim_s=None):
+        if not math.isfinite(x) or not math.isfinite(y):
             raise ValueError("pose must be finite")
-        if self._previous_xy is not None:
-            self.path_length_m += math.hypot(x - self._previous_xy[0], y - self._previous_xy[1])
-        self._previous_xy = (x, y)
+        if self.previous_xy is not None:
+            dx = x - self.previous_xy[0]
+            dy = y - self.previous_xy[1]
+            self.path_length_m += math.hypot(dx, dy)
+        self.previous_xy = (x, y)
         if sim_s is not None:
             if self.first_sim_s is None:
                 self.first_sim_s = sim_s
             self.last_sim_s = sim_s
 
-    def observe_step(self, *, visible: bool, reward: float, new_collision: bool,
-                     captured: bool, region=None, sim_s: float | None = None) -> None:
+    # records the events of one step
+    def observe_step(
+        self, visible, reward, new_collision, captured, region=None, sim_s=None
+    ):
         self.steps += 1
         self.episode_return += reward
         if new_collision:
             self.collisions += 1
-        if region is not None and region not in self._regions:
-            self._regions.add(region)
-            self.regions_visited = len(self._regions)
-        if visible and not self._was_visible:
+        if region is not None and region not in self.regions:
+            self.regions.add(region)
+            self.regions_visited = len(self.regions)
+        if visible and not self.was_visible:
             if self.first_detection_step is None:
                 self.first_detection_step = self.steps
                 self.first_detection_sim_s = sim_s
             else:
                 self.rediscoveries += 1
-        if self._was_visible and not visible:
+        if self.was_visible and not visible:
             self.losses += 1
-        self._was_visible = visible
+        self.was_visible = visible
         if captured and not self.captured:
             self.captured = True
             self.capture_step = self.steps
             self.capture_sim_s = sim_s
 
-    @property
-    def sim_elapsed_s(self) -> float | None:
+    # simulation time between the first and the last pose
+    def sim_elapsed(self):
         if self.first_sim_s is None or self.last_sim_s is None:
             return None
         return max(0.0, self.last_sim_s - self.first_sim_s)
 
-    def to_dict(self) -> dict:
-        data = {k: v for k, v in asdict(self).items() if not k.startswith("_")}
-        data["sim_elapsed_s"] = self.sim_elapsed_s
+    # returns the row saved to episodes.csv and report.json
+    def to_dict(self):
+        data = {}
+        data["episode"] = self.episode
+        data["seed"] = self.seed
+        data["spawn"] = self.spawn
+        data["route"] = self.route
+        data["policy"] = self.policy
+        data["steps"] = self.steps
+        data["episode_return"] = self.episode_return
+        data["path_length_m"] = self.path_length_m
+        data["collisions"] = self.collisions
+        data["captured"] = self.captured
+        data["capture_step"] = self.capture_step
+        data["first_detection_step"] = self.first_detection_step
+        data["losses"] = self.losses
+        data["rediscoveries"] = self.rediscoveries
+        data["regions_visited"] = self.regions_visited
+        data["termination"] = self.termination
+        data["first_sim_s"] = self.first_sim_s
+        data["last_sim_s"] = self.last_sim_s
+        data["first_detection_sim_s"] = self.first_detection_sim_s
+        data["capture_sim_s"] = self.capture_sim_s
+        data["sim_elapsed_s"] = self.sim_elapsed()
         return data

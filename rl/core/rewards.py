@@ -47,7 +47,8 @@ class RewardTracker:
                 limit = self.cfg["approach_clip"]
                 parts["approach"] = max(-limit, min(limit, self.prev_distance - distance))
             self.lost_steps = 0
-        else:
+        elif self.has_detected:
+            # Lost penalties start only after the NPC has been seen once.
             self.lost_steps += 1
             parts["lost_per_step"] = self.cfg["lost_per_step"]
             if self.prev_visible:

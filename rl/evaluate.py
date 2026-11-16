@@ -20,51 +20,103 @@ from pathlib import Path
 SCHEMA = "msml642-chase-evaluation-v1"
 
 
-def _mean(values):
-    values = [v for v in values if v is not None]
-    return statistics.fmean(values) if values else None
+# averages the values that are present, None when there are none
+def mean_of(values):
+    present = []
+    for value in values:
+        if value is not None:
+            present.append(value)
+    if len(present) == 0:
+        return None
+    return statistics.fmean(present)
 
 
-def summarize(episodes: list[dict]) -> dict:
-    """Aggregate EpisodeMetrics.to_dict() rows into the proposal's metrics."""
-    n = len(episodes)
-    captured = [e for e in episodes if e["captured"]]
-    losses = sum(e["losses"] for e in episodes)
-    return {
-        "episodes": n,
-        "capture_rate": len(captured) / n if n else None,
-        "mean_steps_to_first_detection": _mean(e["first_detection_step"] for e in episodes),
-        "mean_sim_s_to_first_detection": _mean(
-            (e["first_detection_sim_s"] - e["first_sim_s"])
-            if e["first_detection_sim_s"] is not None and e["first_sim_s"] is not None else None
-            for e in episodes),
-        "mean_steps_to_capture": _mean(e["capture_step"] for e in captured),
-        "mean_sim_s_to_capture": _mean(
-            (e["capture_sim_s"] - e["first_sim_s"])
-            if e["capture_sim_s"] is not None and e["first_sim_s"] is not None else None
-            for e in captured),
-        "mean_collisions": _mean(e["collisions"] for e in episodes),
-        "rediscovery_rate": (sum(e["rediscoveries"] for e in episodes) / losses) if losses else None,
-        "mean_return": _mean(e["episode_return"] for e in episodes),
-        "detection_rate": _mean(1.0 if e["first_detection_step"] is not None else 0.0
-                                for e in episodes),
-    }
+# simulation seconds from the start of an episode to one of its events
+def seconds_since_start(episode, event_key):
+    event_s = episode[event_key]
+    start_s = episode["first_sim_s"]
+    if event_s is None or start_s is None:
+        return None
+    return event_s - start_s
 
 
-def make_report(policy: str, episodes: list[dict], started_wall: float, config: dict) -> dict:
-    return {
-        "schema": SCHEMA,
-        "policy": policy,
-        "command": " ".join(sys.argv),
-        "elapsed_wall_s": round(time.monotonic() - started_wall, 3),
-        "elapsed_sim_s": round(sum(e["sim_elapsed_s"] or 0.0 for e in episodes), 3),
-        "config": config,
-        "summary": summarize(episodes),
-        "episodes": episodes,
-    }
+# turns EpisodeMetrics.to_dict() rows into the proposal's metrics
+def summarize(episodes):
+    count = len(episodes)
+    captured = []
+    for episode in episodes:
+        if episode["captured"]:
+            captured.append(episode)
+
+    losses = 0
+    rediscoveries = 0
+    for episode in episodes:
+        losses += episode["losses"]
+        rediscoveries += episode["rediscoveries"]
+
+    detection_steps = []
+    detection_times = []
+    detected = []
+    collisions = []
+    returns = []
+    for episode in episodes:
+        detection_steps.append(episode["first_detection_step"])
+        detection_times.append(seconds_since_start(episode, "first_detection_sim_s"))
+        if episode["first_detection_step"] is not None:
+            detected.append(1.0)
+        else:
+            detected.append(0.0)
+        collisions.append(episode["collisions"])
+        returns.append(episode["episode_return"])
+
+    capture_steps = []
+    capture_times = []
+    for episode in captured:
+        capture_steps.append(episode["capture_step"])
+        capture_times.append(seconds_since_start(episode, "capture_sim_s"))
+
+    capture_rate = None
+    if count > 0:
+        capture_rate = len(captured) / count
+    rediscovery_rate = None
+    if losses > 0:
+        rediscovery_rate = rediscoveries / losses
+
+    summary = {}
+    summary["episodes"] = count
+    summary["capture_rate"] = capture_rate
+    summary["mean_steps_to_first_detection"] = mean_of(detection_steps)
+    summary["mean_sim_s_to_first_detection"] = mean_of(detection_times)
+    summary["mean_steps_to_capture"] = mean_of(capture_steps)
+    summary["mean_sim_s_to_capture"] = mean_of(capture_times)
+    summary["mean_collisions"] = mean_of(collisions)
+    summary["rediscovery_rate"] = rediscovery_rate
+    summary["mean_return"] = mean_of(returns)
+    summary["detection_rate"] = mean_of(detected)
+    return summary
 
 
-def write_report(report: dict, path) -> None:
+# builds the report saved next to each run
+def make_report(policy, episodes, started_wall, config):
+    elapsed_sim = 0.0
+    for episode in episodes:
+        if episode["sim_elapsed_s"]:
+            elapsed_sim += episode["sim_elapsed_s"]
+
+    report = {}
+    report["schema"] = SCHEMA
+    report["policy"] = policy
+    report["command"] = " ".join(sys.argv)
+    report["elapsed_wall_s"] = round(time.monotonic() - started_wall, 3)
+    report["elapsed_sim_s"] = round(elapsed_sim, 3)
+    report["config"] = config
+    report["summary"] = summarize(episodes)
+    report["episodes"] = episodes
+    return report
+
+
+# writes to a temp file first, then replaces the old report
+def write_report(report, path):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
@@ -74,6 +126,7 @@ def write_report(report: dict, path) -> None:
 
 def main():
     from rl.runner import parser, run
+
     run(parser().parse_args())
 
 

@@ -2,36 +2,46 @@
 
 RandomPolicy      uniform over the 4 actions.
 RuleBasedTracker  turn toward a visible NPC, avoid obstacles by turning toward
-                  the side with more room, otherwise wander.
+                  the side with more room, turn toward the last-seen side
+                  when the NPC is lost, otherwise drive forward.
 """
-
-import numpy as np
 
 from rl.core.agent import ACTIONS, FORWARD, TURN_LEFT, TURN_RIGHT
 from rl.core.state import LEFT, NEAR, RIGHT
 
 
+# picks one of the four actions at random
 class RandomPolicy:
-    def __init__(self, rng: np.random.Generator):
+    def __init__(self, rng):
         self.rng = rng
 
-    def act(self, state: tuple) -> int:
-        return int(self.rng.integers(len(ACTIONS)))
+    def act(self, state):
+        action = self.rng.integers(len(ACTIONS))
+        return int(action)
 
 
+# hand-written tracker used as a baseline
 class RuleBasedTracker:
-    def act(self, state: tuple) -> int:
-        visible, direction, distance, front, left, right, _last_seen = state
-        open_side = TURN_LEFT if left >= right else TURN_RIGHT
+    def act(self, state):
+        visible, direction, distance, last_seen, front, left, right = state
+        open_side = TURN_RIGHT
+        if left >= right:
+            open_side = TURN_LEFT
         if visible:
             if direction == LEFT:
                 return TURN_LEFT
             if direction == RIGHT:
                 return TURN_RIGHT
-            # NPC dead ahead. If it is the near thing the lidar sees, drive at it.
+            # NPC dead ahead, if it is the near thing the lidar sees, drive at it
             if front != NEAR or distance == NEAR:
                 return FORWARD
             return open_side
-        # Not visible: wander. (The env's LostTargetSearch override handles
-        # turning toward the last-seen side for every policy alike.)
-        return FORWARD if front != NEAR else open_side
+        if front == NEAR:
+            return open_side
+        # lost: turn toward where the NPC was last seen
+        # this only decides the action when the shared lost-target search is off
+        if last_seen == LEFT:
+            return TURN_LEFT
+        if last_seen == RIGHT:
+            return TURN_RIGHT
+        return FORWARD

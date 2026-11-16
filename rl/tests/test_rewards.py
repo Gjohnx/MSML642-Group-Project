@@ -39,6 +39,14 @@ def test_visibility_flicker_and_rediscovery_budget():
     assert step(t, True, 2)["first_detection"] == 5
 
 
+def test_lost_penalty_starts_after_first_detection():
+    t = tracker()
+    assert "lost_per_step" not in step(t)
+    step(t, True, 2)
+    parts = step(t)
+    assert parts["lost_per_step"] == -0.05 and parts["lose_target"] == -1
+
+
 def test_ablation_flags_and_terminal_rewards():
     t = tracker()
     t.cfg["new_region_enabled"] = False

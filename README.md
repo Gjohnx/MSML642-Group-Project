@@ -9,7 +9,7 @@ in docs/phase1. The capture clip uses the rule-based baseline with the NPC initi
 The following training clip shows early Q-learning behavior. The 12-episode debugging run
 did not achieve capture. Full training and comparative experiments remain Phase 2 work.
 
-The scene is a 16 × 12 m indoor facility. A central corridor connects four areas through doorways. Partitions, barriers, crates, drums, cabinets and a workbench all take part in collisions and range sensing. A blue differential-drive robot starts in the middle of the corridor and carries a 180° laser rangefinder. Docker Desktop runs Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic in a Linux container. Gazebo uses headless software rendering, and ROS 2 commands run inside the container.
+The scene is a 16 × 12 m indoor facility. A central corridor connects four areas through doorways. Partitions, barriers, crates, drums, cabinets and a workbench all take part in collisions and range sensing. A blue differential-drive robot starts in the middle of the corridor and carries a 360° laser rangefinder. Docker Desktop runs Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic in a Linux container. Gazebo uses headless software rendering, and ROS 2 commands run inside the container.
 
 ## Quick start for team members
 
@@ -132,7 +132,19 @@ Run both reward ablations and the two baselines with multiple seeds:
 docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.experiment --seeds 0 1 --episodes 20 --eval-episodes 6 --max-steps 120 --ablations'
 ```
 
-Plots and a comparison CSV are saved under experiments/suite/figures. Reward ablations have different reward definitions, so compare capture, detection and collision metrics as well as return.
+Add `--heldout` to also evaluate every policy on the held-out start set. Figures (`learning_curves.png`, `policy_comparison.png`) and tables (`summary.csv` with mean and spread across seeds, `comparison.csv` per run) are saved under experiments/suite/figures. Reward ablations have different reward definitions, so compare capture, detection and collision metrics as well as return.
+
+### Two-stage training
+
+Stage 1 trains tracking only: the `tracking` start set places the learner where the NPC is in view at reset. Stage 2 continues from that Q-table on the default starts, where the NPC must be found first. `--epsilon-start` lowers the starting exploration rate so stage 2 does not overwrite what stage 1 learned.
+
+```sh
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.train --spawn-set tracking --episodes 300 --epsilon-decay-episodes 225 --output experiments/stage1_seed0'
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.train --resume experiments/stage1_seed0/q_table.npy --epsilon-start 0.3 --episodes 500 --epsilon-decay-episodes 375 --output experiments/stage2_seed0'
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.evaluate --policy experiments/stage2_seed0/q_table.npy --spawn-set heldout --output experiments/eval_stage2_heldout_seed0'
+```
+
+Start sets are listed under `spawn_sets` in rl/config/qlearning.yaml. `heldout` is for evaluation only. `--no-lost-search` turns off the shared lost-target search, which shows what a policy does on its own after losing the NPC.
 
 ## Record a Gazebo demonstration
 

@@ -5,67 +5,96 @@ back to the agent.
 """
 
 import math
-from dataclasses import dataclass
 
 from rl.core.agent import FORWARD, TURN_LEFT, TURN_RIGHT
 from rl.core.geometry import sector_clearance
 from rl.core.state import FRONT, LEFT, RIGHT
 
+# robot geometry, wheel separation 0.29 m + 0.04 m tires (see sim/room.sdf)
+ROBOT_WIDTH_M = 0.33
+CLEARANCE_MARGIN_M = 0.12
 
-@dataclass(frozen=True)
+# collision recovery
+BACKUP_SPEED = 0.10
+TURN_SPEED = 0.6
+MAX_BACKUP_M = 0.20
+MIN_BACKUP_M = 0.05
+REAR_CLEAR_M = 0.25
+REAR_MARGIN_M = 0.12
+RECOVERY_TURN_DEG = 35.0
+RECOVERY_STOP_S = 0.25
+
+# lost-target search
+SCAN_STEPS = 20
+EXPLORE_FRONT_M = 1.0
+
+
+# raw velocity command the env publishes on /robot/cmd_vel for duration_s of sim time
 class Command:
-    """Raw velocity command the env publishes on /robot/cmd_vel for duration_s of sim time."""
-    linear: float
-    angular: float
-    duration_s: float
+    def __init__(self, linear, angular, duration_s):
+        self.linear = linear
+        self.angular = angular
+        self.duration_s = duration_s
 
 
-# ---------------------------------------------------------------- safety check
-
-@dataclass(frozen=True)
+# stop distances derived from the robot width and a clearance margin
 class SafetyConfig:
-    """Stop distances derived from robot width and a clearance margin.
-    The robot is ~0.33 m wide (wheel separation 0.29 m + 0.04 m tires, see sim/room.sdf)."""
-    robot_width_m: float = 0.33
-    clearance_margin: float = 0.12
-
-    @property
-    def front_stop(self) -> float:
-        return 0.10 + self.clearance_margin
-
-    @property
-    def side_stop(self) -> float:
-        return self.robot_width_m / 2.0 + 0.3 * self.clearance_margin
+    def __init__(
+        self, robot_width_m=ROBOT_WIDTH_M, clearance_margin=CLEARANCE_MARGIN_M
+    ):
+        half_width = robot_width_m / 2.0
+        self.robot_width_m = robot_width_m
+        self.clearance_margin = clearance_margin
+        self.front_stop = 0.10 + clearance_margin
+        self.side_stop = half_width + 0.3 * clearance_margin
 
 
-def motion_unsafe(rays, range_max, direction, safety: SafetyConfig) -> bool:
-    """True if moving toward `direction` (robot frame, rad) would get too close.
-    `rays` are (angle, distance, hit) tuples from geometry.scan_to_rays()."""
-    hits = [r for r in rays if r[2]]
+# checks whether moving toward a direction (robot frame, radians) gets too close
+# rays are (angle, distance, hit) tuples from geometry.scan_to_rays()
+def motion_unsafe(rays, range_max, direction, safety):
+    hit_rays = []
+    for ray in rays:
+        if ray[2]:
+            hit_rays.append(ray)
     half_pi = math.pi / 2.0
-    front = sector_clearance(hits, direction, math.radians(25.0), range_max)
-    center = sector_clearance(hits, direction, math.radians(8.0), range_max)
-    left = sector_clearance(hits, direction + half_pi, math.radians(30.0), range_max)
-    right = sector_clearance(hits, direction - half_pi, math.radians(30.0), range_max)
+    front = sector_clearance(hit_rays, direction, math.radians(25.0), range_max)
+    center = sector_clearance(hit_rays, direction, math.radians(8.0), range_max)
+    left = sector_clearance(
+        hit_rays, direction + half_pi, math.radians(30.0), range_max
+    )
+    right = sector_clearance(
+        hit_rays, direction - half_pi, math.radians(30.0), range_max
+    )
     if front < safety.front_stop or center < safety.front_stop:
         return True
     return left < safety.side_stop or right < safety.side_stop
 
 
-# ---------------------------------------------------------- collision recovery
+# reads a clearance and treats a missing reading as no room at all
+def clearance_or_zero(clear, name):
+    value = clear.get(name)
+    if not value:
+        return 0.0
+    return value
 
+
+# stop, back up if the rear is clear, then turn toward the open side
+# backs up min(0.20, rear - 0.12) when the rear clearance is above 0.25 m
+# a rear sector with no lidar coverage is unsafe, so the robot turns in place
+# rear_offset_m is the distance from the lidar back to the rear of the body
 class CollisionRecovery:
-    """stop -> back up (<= 0.2 m) if the rear is clear -> turn toward the open side.
-
-    Backs up min(0.20, rear - 0.12) when the rear clearance is above 0.25 m and
-    the backup is at least 0.05 m, then turns 35 deg toward whichever side has
-    more room. A rear sector with no lidar coverage (None) is treated as
-    unsafe, so the robot turns in place instead.
-    """
-
-    def __init__(self, backup_speed=0.10, turn_speed=0.6, max_backup_m=0.20,
-                 rear_clear_m=0.25, rear_margin_m=0.12, min_backup_m=0.05,
-                 turn_deg=35.0, stop_s=0.25):
+    def __init__(
+        self,
+        backup_speed=BACKUP_SPEED,
+        turn_speed=TURN_SPEED,
+        max_backup_m=MAX_BACKUP_M,
+        rear_clear_m=REAR_CLEAR_M,
+        rear_margin_m=REAR_MARGIN_M,
+        min_backup_m=MIN_BACKUP_M,
+        turn_deg=RECOVERY_TURN_DEG,
+        stop_s=RECOVERY_STOP_S,
+        rear_offset_m=0.0,
+    ):
         self.backup_speed = backup_speed
         self.turn_speed = turn_speed
         self.max_backup_m = max_backup_m
@@ -74,81 +103,87 @@ class CollisionRecovery:
         self.min_backup_m = min_backup_m
         self.turn_rad = math.radians(turn_deg)
         self.stop_s = stop_s
+        self.rear_offset_m = rear_offset_m
 
-    def plan(self, clear: dict) -> list[Command]:
-        """`clear` is geometry.clearances(): keys rear/left/right, values in m or None."""
-        commands = [Command(0.0, 0.0, self.stop_s)]
+    # clear is geometry.clearances(): keys rear/left/right, values in meters or None
+    def plan(self, clear):
+        commands = []
+        commands.append(Command(0.0, 0.0, self.stop_s))
+
         rear = clear.get("rear")
+        if rear is not None:
+            rear = rear - self.rear_offset_m
         backup = 0.0
         if rear is not None and rear > self.rear_clear_m:
             backup = min(self.max_backup_m, rear - self.rear_margin_m)
         if backup >= self.min_backup_m:
-            commands.append(Command(-self.backup_speed, 0.0, backup / self.backup_speed))
-        left = clear.get("left") or 0.0
-        right = clear.get("right") or 0.0
-        direction = 1.0 if left >= right else -1.0
-        commands.append(Command(0.0, direction * self.turn_speed, self.turn_rad / self.turn_speed))
+            duration = backup / self.backup_speed
+            commands.append(Command(-self.backup_speed, 0.0, duration))
+
+        left = clearance_or_zero(clear, "left")
+        right = clearance_or_zero(clear, "right")
+        direction = -1.0
+        if left >= right:
+            direction = 1.0
+        duration = self.turn_rad / self.turn_speed
+        commands.append(Command(0.0, direction * self.turn_speed, duration))
         return commands
 
 
+# counts separate collisions, a new one only after contact has cleared
+# the episode ends once max_collisions is reached
 class CollisionCounter:
-    """Counts separate collisions (a new one only after contact has cleared).
-    The episode ends once max_collisions is reached."""
-
-    def __init__(self, max_collisions: int = 3):
+    def __init__(self, max_collisions=3):
         self.max_collisions = max_collisions
         self.reset()
 
-    def reset(self) -> None:
+    def reset(self):
         self.count = 0
-        self._in_contact = False
+        self.in_contact = False
+        self.done = False
 
-    def observe(self, in_contact: bool) -> bool:
-        """Feed this step's contact flag. Returns True if this is a new collision."""
-        new = in_contact and not self._in_contact
-        self._in_contact = in_contact
-        if new:
+    # takes this step's contact flag and returns True for a new collision
+    def observe(self, in_contact):
+        new_collision = in_contact and not self.in_contact
+        self.in_contact = in_contact
+        if new_collision:
             self.count += 1
-        return new
-
-    @property
-    def done(self) -> bool:
-        return self.count >= self.max_collisions
+        self.done = self.count >= self.max_collisions
+        return new_collision
 
 
-# ---------------------------------------------------------- lost-target search
-
+# runs while the NPC is out of view, the env hands control back once it is seen
+# scan phase: turn toward the last-seen side for up to scan_steps steps
+# explore phase: drive forward while the front is open, else turn to the open side
 class LostTargetSearch:
-    """Runs while the NPC is out of view; the env hands control back once it is seen.
-
-    Phase 1 (scan): turn toward the last-seen side for up to scan_steps steps.
-    Phase 2 (explore): drive forward while the front is open, otherwise turn
-    toward the side with more room.
-    Returns primitive action indices so it uses the same step timing as the agent.
-    """
-
-    def __init__(self, scan_steps: int = 20, explore_front_m: float = 1.0):
+    def __init__(self, scan_steps=SCAN_STEPS, explore_front_m=EXPLORE_FRONT_M):
         self.scan_steps = scan_steps
         self.explore_front_m = explore_front_m
         self.reset()
 
-    def reset(self) -> None:
+    def reset(self):
         self.steps = 0
 
-    def next_action(self, last_seen_dir: int, clear: dict) -> int:
+    # returns a robot action so the search uses the same step timing as the agent
+    def next_action(self, last_seen_dir, clear):
         self.steps += 1
         if self.steps <= self.scan_steps:
             if last_seen_dir == RIGHT:
                 return TURN_RIGHT
             if last_seen_dir == LEFT:
                 return TURN_LEFT
-            if last_seen_dir == FRONT and (clear.get("front") or 0.0) > self.explore_front_m:
-                return FORWARD     # it was ahead: keep going the way it went
-        return self._explore(clear)
+            front = clearance_or_zero(clear, "front")
+            if last_seen_dir == FRONT and front > self.explore_front_m:
+                # it was ahead, keep going the way it went
+                return FORWARD
+        return self.explore(clear)
 
-    def _explore(self, clear: dict) -> int:
-        if (clear.get("front") or 0.0) > self.explore_front_m:
+    def explore(self, clear):
+        front = clearance_or_zero(clear, "front")
+        if front > self.explore_front_m:
             return FORWARD
-        left = clear.get("left") or 0.0
-        right = clear.get("right") or 0.0
-        return TURN_LEFT if left >= right else TURN_RIGHT
+        left = clearance_or_zero(clear, "left")
+        right = clearance_or_zero(clear, "right")
+        if left >= right:
+            return TURN_LEFT
+        return TURN_RIGHT

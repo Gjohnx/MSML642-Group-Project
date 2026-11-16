@@ -6,7 +6,7 @@ attributes as the ROS message), so they can be unit-tested without ROS.
 
 import math
 
-# Lidar sectors: name -> (center_rad, half_width_rad).
+# lidar sectors: name -> (center, half width) in radians
 SECTORS = {
     "front": (0.0, math.radians(25.0)),
     "center_front": (0.0, math.radians(8.0)),
@@ -16,9 +16,11 @@ SECTORS = {
 }
 
 
+# wraps an angle to [-pi, pi]
 def normalization(a):
-    """Wrap an angle to [-pi, pi]."""
-    return math.atan2(math.sin(a), math.cos(a))
+    sin_a = math.sin(a)
+    cos_a = math.cos(a)
+    return math.atan2(sin_a, cos_a)
 
 
 def yaw_from_quaternion(q):
@@ -28,71 +30,101 @@ def yaw_from_quaternion(q):
 
 
 def yaw_from_odom(odom):
-    return yaw_from_quaternion(odom.pose.pose.orientation)
+    q = odom.pose.pose.orientation
+    return yaw_from_quaternion(q)
 
 
+# returns (x, y, yaw) from an odometry message
 def pose_from_odom(odom):
-    """(x, y, yaw) from a nav_msgs/Odometry."""
-    p = odom.pose.pose.position
-    return (p.x, p.y, yaw_from_odom(odom))
+    position = odom.pose.pose.position
+    yaw = yaw_from_odom(odom)
+    return (position.x, position.y, yaw)
 
 
+# calculates a target point at a distance and heading offset from the robot
 def relative_waypoint(pose, distance, heading_offset=0.0):
     px, py, yaw = pose
     heading = normalization(yaw + heading_offset)
-    return (px + distance * math.cos(heading), py + distance * math.sin(heading), heading)
+    target_x = px + distance * math.cos(heading)
+    target_y = py + distance * math.sin(heading)
+    return (target_x, target_y, heading)
 
 
 def robot_to_world(pose, point):
     px, py, yaw = pose
-    c, s = math.cos(yaw), math.sin(yaw)
-    return (px + point[0] * c - point[1] * s, py + point[0] * s + point[1] * c)
+    cos_yaw = math.cos(yaw)
+    sin_yaw = math.sin(yaw)
+    world_x = px + point[0] * cos_yaw - point[1] * sin_yaw
+    world_y = py + point[0] * sin_yaw + point[1] * cos_yaw
+    return (world_x, world_y)
 
 
+# returns the bearing and distance of a world point as seen from the robot
 def world_to_robot(pose, point):
-    """Inverse of robot_to_world: returns (bearing_rad, distance_m) of a world point."""
     px, py, yaw = pose
-    dx, dy = point[0] - px, point[1] - py
-    return normalization(math.atan2(dy, dx) - yaw), math.hypot(dx, dy)
+    dx = point[0] - px
+    dy = point[1] - py
+    bearing = normalization(math.atan2(dy, dx) - yaw)
+    distance = math.hypot(dx, dy)
+    return bearing, distance
 
 
+# turns a LaserScan into (angle, distance, hit) rays
+# a miss (inf, NaN, out of range) gets distance = range_max and hit = False
 def scan_to_rays(scan):
-    """(angle, distance, hit) for every beam. Misses (inf, NaN, out of range)
-    get distance=range_max, hit=False."""
     range_max = float(scan.range_max)
     rays = []
-    for i, raw in enumerate(scan.ranges):
+    for i in range(len(scan.ranges)):
+        raw = scan.ranges[i]
         angle = scan.angle_min + i * scan.angle_increment
-        hit = math.isfinite(raw) and scan.range_min <= raw <= scan.range_max
-        rays.append((angle, float(raw) if hit else range_max, hit))
+        hit = False
+        if math.isfinite(raw):
+            above_min = raw >= scan.range_min
+            below_max = raw <= scan.range_max
+            hit = above_min and below_max
+        distance = range_max
+        if hit:
+            distance = float(raw)
+        rays.append((angle, distance, hit))
     return rays
 
 
+# returns minimum lidar range between angles
 def sector_clearance(rays, center, half_width, default):
-    """Smallest range among rays within half_width of center, capped at default."""
     smallest = None
-    for angle, distance, _hit in rays:
-        if abs(normalization(angle - center)) <= half_width:
+    for angle, distance, hit in rays:
+        offset = normalization(angle - center)
+        if abs(offset) <= half_width:
             if smallest is None or distance < smallest:
                 smallest = distance
-    if smallest is None or smallest > default:
+    if smallest is None:
+        return default
+    if smallest > default:
         return default
     return smallest
 
 
+# checks whether at least one beam points into the sector
+# a sector outside the lidar's field of view must not be mistaken for clear
 def sector_covered(rays, center, half_width):
-    """True if at least one beam points into the sector. The robot's lidar is
-    180 deg, so "rear" has no beams and must not be mistaken for "clear"."""
-    return any(abs(normalization(a - center)) <= half_width for a, _d, _h in rays)
+    for angle, distance, hit in rays:
+        offset = normalization(angle - center)
+        if abs(offset) <= half_width:
+            return True
+    return False
 
 
+# returns the clearance of every sector in meters, None for a sector with no beams
 def clearances(rays, range_max):
-    """Per-sector clearance in meters. A sector with no beams is None."""
-    hits = [r for r in rays if r[2]]
-    out = {}
-    for name, (center, half) in SECTORS.items():
-        if not sector_covered(rays, center, half):
-            out[name] = None
+    hit_rays = []
+    for ray in rays:
+        if ray[2]:
+            hit_rays.append(ray)
+    result = {}
+    for name in SECTORS:
+        center, half_width = SECTORS[name]
+        if sector_covered(rays, center, half_width):
+            result[name] = sector_clearance(hit_rays, center, half_width, range_max)
         else:
-            out[name] = sector_clearance(hits, center, half, range_max)
-    return out
+            result[name] = None
+    return result

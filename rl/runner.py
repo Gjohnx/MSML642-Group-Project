@@ -83,6 +83,8 @@ def parser(training=False):
     p.add_argument("--max-steps", type=int, default=None)
     p.add_argument("--route", default=None)
     p.add_argument("--spawn", nargs=3, type=float, default=None, metavar=("X", "Y", "YAW"))
+    p.add_argument("--spawn-set", default=None,
+                   help="named start set from the config's spawn_sets (e.g. tracking, heldout)")
     p.add_argument("--output", default=None)
     p.add_argument("--no-exploration-bonus", action="store_true")
     p.add_argument("--no-rediscovery-bonus", action="store_true")
@@ -90,6 +92,8 @@ def parser(training=False):
     if training:
         p.add_argument("--resume", default=None)
         p.add_argument("--epsilon-decay-episodes", type=int, default=None)
+        p.add_argument("--epsilon-start", type=float, default=None,
+                       help="starting epsilon; lower it when continuing with --resume")
     else:
         p.add_argument("--policy", default="rule", help="rule, random, or path to q_table.npy")
     return p
@@ -109,10 +113,23 @@ def run(args, training=False):
         cfg["episodes"] = 6
     if training and args.epsilon_decay_episodes is not None:
         cfg["epsilon"]["decay_episodes"] = args.epsilon_decay_episodes
+    if training and args.epsilon_start is not None:
+        if not 0.0 <= args.epsilon_start <= 1.0:
+            raise ValueError("epsilon-start must be between 0 and 1")
+        cfg["epsilon"]["start"] = args.epsilon_start
+        cfg["epsilon"]["end"] = min(cfg["epsilon"]["end"], args.epsilon_start)
     if args.max_steps is not None:
         cfg["max_steps"] = args.max_steps
     if cfg["episodes"] < 1 or cfg["max_steps"] < 1:
         raise ValueError("episodes and max-steps must be positive")
+    if args.spawn_set is not None:
+        sets = cfg.get("spawn_sets", {})
+        if args.spawn_set not in sets:
+            raise ValueError(f"unknown spawn set {args.spawn_set!r}; choose from {sorted(sets)}")
+        chosen = sets[args.spawn_set]
+        cfg["spawns"] = chosen["spawns"]
+        if "routes" in chosen:
+            cfg["routes"] = chosen["routes"]
     if args.spawn is not None:
         cfg["spawns"] = [args.spawn]
     if args.route:
