@@ -31,22 +31,28 @@ def main():
             command("rl.evaluate", "--seed", seed, "--episodes", args.eval_episodes,
                     "--policy", train/"q_table.npy", "--output", evaluate, *flags)
             plots.extend([train, evaluate])
+            # the same trained policy again, from the held-out starts
             if args.heldout:
-                evaluate = root/f"eval_{variant}_heldout_seed{seed}"
-                command("rl.evaluate", "--seed", seed, "--episodes", args.eval_episodes,
-                        "--policy", train/"q_table.npy", "--output", evaluate,
-                        "--spawn-set", "heldout", *flags)
-                plots.append(evaluate)
+                heldout_dir = root / f"eval_{variant}_heldout_seed{seed}"
+                options = ["--seed", seed, "--episodes", args.eval_episodes]
+                options = options + ["--policy", train / "q_table.npy"]
+                options = options + ["--output", heldout_dir]
+                options = options + ["--spawn-set", "heldout"] + flags
+                command("rl.evaluate", *options)
+                plots.append(heldout_dir)
         for policy in ("random", "rule"):
             evaluate = root/f"eval_{policy}_seed{seed}"
             command("rl.evaluate", "--seed", seed, "--episodes", args.eval_episodes,
                     "--policy", policy, "--output", evaluate)
             plots.append(evaluate)
+            # the same baseline again, from the held-out starts
             if args.heldout:
-                evaluate = root/f"eval_{policy}_heldout_seed{seed}"
-                command("rl.evaluate", "--seed", seed, "--episodes", args.eval_episodes,
-                        "--policy", policy, "--output", evaluate, "--spawn-set", "heldout")
-                plots.append(evaluate)
+                heldout_dir = root / f"eval_{policy}_heldout_seed{seed}"
+                options = ["--seed", seed, "--episodes", args.eval_episodes]
+                options = options + ["--policy", policy, "--output", heldout_dir]
+                options = options + ["--spawn-set", "heldout"]
+                command("rl.evaluate", *options)
+                plots.append(heldout_dir)
     subprocess.run([sys.executable, "-m", "analysis.plot_results", *map(str, plots),
                     "--output", str(root/"figures")], check=True)
 

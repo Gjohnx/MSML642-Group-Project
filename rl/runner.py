@@ -113,20 +113,24 @@ def run(args, training=False):
         cfg["episodes"] = 6
     if training and args.epsilon_decay_episodes is not None:
         cfg["epsilon"]["decay_episodes"] = args.epsilon_decay_episodes
+    # a resumed run can start with less exploration than a fresh one
     if training and args.epsilon_start is not None:
-        if not 0.0 <= args.epsilon_start <= 1.0:
+        if args.epsilon_start < 0.0 or args.epsilon_start > 1.0:
             raise ValueError("epsilon-start must be between 0 and 1")
         cfg["epsilon"]["start"] = args.epsilon_start
-        cfg["epsilon"]["end"] = min(cfg["epsilon"]["end"], args.epsilon_start)
+        if cfg["epsilon"]["end"] > args.epsilon_start:
+            cfg["epsilon"]["end"] = args.epsilon_start
     if args.max_steps is not None:
         cfg["max_steps"] = args.max_steps
     if cfg["episodes"] < 1 or cfg["max_steps"] < 1:
         raise ValueError("episodes and max-steps must be positive")
+    # a named start set replaces the default spawns, and the routes if it lists any
     if args.spawn_set is not None:
-        sets = cfg.get("spawn_sets", {})
-        if args.spawn_set not in sets:
-            raise ValueError(f"unknown spawn set {args.spawn_set!r}; choose from {sorted(sets)}")
-        chosen = sets[args.spawn_set]
+        spawn_sets = cfg.get("spawn_sets", {})
+        if args.spawn_set not in spawn_sets:
+            names = sorted(spawn_sets)
+            raise ValueError(f"unknown spawn set {args.spawn_set!r}; choose from {names}")
+        chosen = spawn_sets[args.spawn_set]
         cfg["spawns"] = chosen["spawns"]
         if "routes" in chosen:
             cfg["routes"] = chosen["routes"]

@@ -9,26 +9,48 @@ import yaml
 from rl.core.state import Observation
 
 
+# set limit so stale sensor data is never used
 MAX_SENSOR_AGE_S = 2.0
 
 
+# converts a ROS time stamp to seconds
 def stamp_seconds(stamp):
     return stamp.sec + stamp.nanosec * 1e-9
 
 
+# returns the names of the things the robot touched
+# contacts with the robot itself or an ignored model (the floor) do not count
 def external_contacts(collision_pairs, robot_model, ignore=("floor",)):
-    prefixes = (f"{robot_model}::",) + tuple(f"{name}::" for name in ignore)
-    return list(dict.fromkeys(name for pair in collision_pairs for name in pair
-                              if not name.startswith(prefixes)))
+    own_prefixes = [f"{robot_model}::"]
+    for name in ignore:
+        own_prefixes.append(f"{name}::")
+    touched = []
+    for pair in collision_pairs:
+        for name in pair:
+            is_own = False
+            for prefix in own_prefixes:
+                if name.startswith(prefix):
+                    is_own = True
+                    break
+            if is_own:
+                continue
+            if name not in touched:
+                touched.append(name)
+    return touched
 
 
+# tracks when each sensor stream last arrived, on the wall clock
+# after a motion command, barrier() makes ready() wait for newer messages
 class SensorFreshness:
-    """Wall-clock arrival barrier for subscriptions after a motion command."""
-    def __init__(self, names=("odom", "scan"), max_age_s=MAX_SENSOR_AGE_S, clock=time.monotonic):
+    def __init__(
+        self, names=("odom", "scan"), max_age_s=MAX_SENSOR_AGE_S, clock=time.monotonic
+    ):
         self.names = tuple(names)
         self.max_age_s = max_age_s
         self.clock = clock
-        self.last = {name: None for name in self.names}
+        self.last = {}
+        for name in self.names:
+            self.last[name] = None
         self.after = 0.0
 
     def mark(self, name):
@@ -37,14 +59,30 @@ class SensorFreshness:
     def barrier(self):
         self.after = self.clock()
 
+    # every stream must have arrived after the barrier and not be too old
     def ready(self):
         now = self.clock()
-        return all(t is not None and self.after <= t <= now and now - t <= self.max_age_s
-                   for t in self.last.values())
+        for name in self.last:
+            received = self.last[name]
+            if received is None:
+                return False
+            if received < self.after or received > now:
+                return False
+            if now - received > self.max_age_s:
+                return False
+        return True
 
+    # returns how old the latest message of each stream is, for error messages
     def ages(self):
         now = self.clock()
-        return {k: None if t is None else round(now-t, 3) for k, t in self.last.items()}
+        result = {}
+        for name in self.last:
+            received = self.last[name]
+            if received is None:
+                result[name] = None
+            else:
+                result[name] = round(now - received, 3)
+        return result
 
 
 class ChaseEnv:

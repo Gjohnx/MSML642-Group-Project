@@ -39,12 +39,15 @@ def test_visibility_flicker_and_rediscovery_budget():
     assert step(t, True, 2)["first_detection"] == 5
 
 
+# the lost penalty must not be charged before the NPC has been seen once
 def test_lost_penalty_starts_after_first_detection():
     t = tracker()
-    assert "lost_per_step" not in step(t)
+    parts = step(t)
+    assert "lost_per_step" not in parts
     step(t, True, 2)
     parts = step(t)
-    assert parts["lost_per_step"] == -0.05 and parts["lose_target"] == -1
+    assert parts["lost_per_step"] == -0.05
+    assert parts["lose_target"] == -1
 
 
 def test_ablation_flags_and_terminal_rewards():
