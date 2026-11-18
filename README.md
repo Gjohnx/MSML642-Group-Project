@@ -94,14 +94,18 @@ sim/                  Gazebo scene and ROS 2 bridge (mounted read-only in the co
   npc_routes.yaml     NPC patrol routes
 rl/                   Reinforcement learning code (mounted at /project/rl)
   core/               ROS-free: state discretization, Q-table, rewards,
-                      lost-target search, collision recovery, baselines
-  ros/                env.py (reset/step interface), detector.py (limited-FOV detector)
-  config/             qlearning.yaml, rewards.yaml
-  tests/              Unit tests for core/
-  train.py / evaluate.py
+                      lost-target search, collision recovery, baselines,
+                      explore.py (explore-then-chase demo logic)
+  ros/                env.py (reset/step interface), detector.py (limited-FOV detector),
+                      odometry.py (wheel odometry for the explore state)
+  config/             qlearning.yaml, rewards.yaml, explore.yaml
+  tests/              Unit tests (no Gazebo needed)
+  train.py / evaluate.py / experiment.py
+  explore.py          Train or evaluate the exploration Q-table
+  demo.py             Explore-then-chase demo with the Chase button
 experiments/          Training outputs (not committed; mounted at /project/experiments)
 analysis/             Plotting scripts for the report
-docs/                 Proposal, report, figures
+docs/                 Reports and figures
 ```
 
 `rl/core/` does not import `rclpy`, so it can be tested without starting the simulation. Training runs inside the container:
@@ -145,6 +149,35 @@ docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project
 ```
 
 Start sets are listed under `spawn_sets` in rl/config/qlearning.yaml. `heldout` is for evaluation only. `--no-lost-search` turns off the shared lost-target search, which shows what a policy does on its own after losing the NPC.
+
+## Explore-then-chase demo
+
+The robot explores with its own exploration Q-table until someone clicks **Chase** in the Gazebo window, then chases the NPC with the trained chase Q-table. The exploration state has only the lidar obstacle levels and how long since the robot reached a new area (from its own wheel odometry), so it never chases on its own. The last-seen direction of the NPC is still tracked, so the chase starts knowing which way to turn.
+
+Chase button: add Gazebo's Publisher panel to `sim/demo_gui.config` and bridge its topic in `sim/bridge.yaml`:
+
+```xml
+<plugin filename="Publisher" name="Chase button">
+  <gz-gui><title>Chase</title><property type="string" key="state">docked</property></gz-gui>
+</plugin>
+```
+
+```yaml
+- ros_topic_name: /demo/chase
+  gz_topic_name: /demo/chase
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: GZ_TO_ROS
+```
+
+In the panel, set message type `gz.msgs.StringMsg`, message `data: "chase"` and topic `/demo/chase`, then click Publish. The same signal can be sent from a terminal: `ros2 topic pub --once /demo/chase std_msgs/msg/String "{data: chase}"`.
+
+Train the exploration Q-table, then run the demo (`--chase-table rule` tests it with the rule-based tracker, `--chase-after N` presses Chase automatically):
+
+```sh
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.explore --episodes 150 --output experiments/explore_seed0'
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.demo --explore-table experiments/explore_seed0/q_table.npy --chase-table experiments/stage2_seed0/q_table.npy'
+```
 
 ## Record a Gazebo demonstration
 

@@ -1,0 +1,22 @@
+# Exploration Q-table for the explore-then-chase demo (rl/explore.py, rl/demo.py).
+# Sensor settings, actions and obstacle levels come from qlearning.yaml.
+
+episodes: 150
+max_steps: 200
+alpha: 0.1
+gamma: 0.95
+epsilon: {start: 1.0, end: 0.05, decay_episodes: 110}
+
+# the robot remembers areas it has driven through using its own wheel odometry
+# (/robot/odom), never the true position
+odometry_cell_m: 1.0
+# steps since the robot last reached a new area -> moving on / slowing down / stuck
+stall_bins_steps: [10, 30]
+
+rewards:
+  time_step: -0.02
+  new_region: 0.2          # first visit to a coarse 2 m map cell, once per episode
+  collision: -5.0
+
+# demo only: stop after this many steps if nothing else ends it
+demo_max_steps: 600
