@@ -350,3 +350,36 @@ def test_demo_without_chase_keeps_exploring():
     assert summary["termination"] == "step_limit"
     assert summary["steps"] == 12
     assert summary["switch_step"] is None
+
+
+def test_exploration_step_limit_applies_while_close_to_npc():
+    env = FakeEnv(npc_xy=(0.3, 0.0), max_steps=3)
+    agent = fixed_agent(explore_count(), STOP)
+    explore_cfg = dict(EXPLORE_CFG, max_steps=3)
+    row = run_explore_episode(env, agent, CFG, explore_cfg, env.odometry, None, None)
+    assert row["steps"] == 3 and row["termination"] == "step_limit"
+
+
+def test_demo_stop_command_and_reset_clear_chase():
+    button = ChaseButton()
+    calls = []
+    button.interrupt = lambda: calls.append("interrupt")
+    button.receive(SimpleNamespace(data="chase"))
+    button.receive_control(SimpleNamespace(data="stop"))
+    assert button.command == "stop" and calls == ["interrupt"]
+    env = FakeEnv(npc_xy=(3, 0), max_steps=100)
+    controller = ExploreThenChase(RuleBasedTracker(), RuleBasedTracker(), CFG, EXPLORE_CFG)
+    summary = run_demo(env, controller, env.odometry, button.requested, 20,
+                      command_requested=lambda: button.command)
+    assert summary["termination"] == "stop" and summary["steps"] == 0
+    button.reset()
+    assert button.command is None and not button.requested()
+    summary = run_demo(env, controller, env.odometry, button.requested, 2)
+    assert summary["switch_step"] is None
+
+
+def test_rule_exploration_ignores_target_direction():
+    controller = ExploreThenChase(RuleBasedTracker(), RuleBasedTracker(), CFG, EXPLORE_CFG)
+    left = Observation(True, 1.0, 2, 3, 3, 3)
+    right = Observation(True, -1.0, 2, 3, 3, 3)
+    assert controller.choose_action(left, {}) == controller.choose_action(right, {}) == FORWARD

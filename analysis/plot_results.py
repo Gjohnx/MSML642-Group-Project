@@ -215,7 +215,8 @@ def plot_learning_curves(training, out, extras):
         fig.legend(
             handles,
             labels,
-            loc="outside upper center",
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.14),
             ncols=min(3, len(handles)),
             frameon=False,
             fontsize=8,
@@ -223,7 +224,8 @@ def plot_learning_curves(training, out, extras):
         )
     note = "Moving average per run; line = mean across seeds, band = range across seeds"
     fig.supxlabel(note, fontsize=7, color=NOTE_COLOR)
-    fig.savefig(out / "learning_curves.png", dpi=FIGURE_DPI, facecolor=SURFACE_COLOR)
+    fig.savefig(out / "learning_curves.png", dpi=FIGURE_DPI, facecolor=SURFACE_COLOR,
+                bbox_inches="tight")
     plt.close(fig)
 
 

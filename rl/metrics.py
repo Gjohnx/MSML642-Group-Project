@@ -23,6 +23,9 @@ class EpisodeMetrics:
         self.episode_return = 0.0
         self.path_length_m = 0.0
         self.collisions = 0
+        self.shielded_steps = 0
+        self.search_steps = 0
+        self.recovery_events = 0
         self.captured = False
         self.capture_step = None
         self.first_detection_step = None
@@ -69,9 +72,13 @@ class EpisodeMetrics:
 
     # records the events of one step
     def observe_step(
-        self, visible, reward, new_collision, captured, region=None, sim_s=None
+        self, visible, reward, new_collision, captured, region=None, sim_s=None,
+        shielded=False, search_override=False, recovered=False
     ):
         self.steps += 1
+        self.shielded_steps += int(shielded)
+        self.search_steps += int(search_override)
+        self.recovery_events += int(recovered)
         self.episode_return += reward
         if new_collision:
             self.collisions += 1
@@ -110,6 +117,9 @@ class EpisodeMetrics:
         data["episode_return"] = self.episode_return
         data["path_length_m"] = self.path_length_m
         data["collisions"] = self.collisions
+        data["shielded_steps"] = self.shielded_steps
+        data["search_steps"] = self.search_steps
+        data["recovery_events"] = self.recovery_events
         data["captured"] = self.captured
         data["capture_step"] = self.capture_step
         data["first_detection_step"] = self.first_detection_step

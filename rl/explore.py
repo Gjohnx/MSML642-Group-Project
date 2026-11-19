@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from rl.core.agent import QLearningAgent, epsilon_schedule
+from rl.core.agent import QLearningAgent, epsilon_schedule, checkpoint_spec
 from rl.core.explore import (
     ExploreRewardTracker,
     OdometryAreas,
@@ -73,12 +73,16 @@ def run_explore_episode(
         next_state = explore_state(next_obs, areas.steps_since_new, cfg, explore_cfg)
 
         # bumping into the NPC is not a goal while exploring, only crashes and time end it
-        done = info["termination"] in ("collisions", "step_limit")
+        steps += 1
+        if info["termination"] == "collisions" or info["collisions"] >= cfg["max_collisions"]:
+            termination = "collisions"
+        elif info["termination"] == "step_limit" or steps >= explore_cfg["max_steps"]:
+            termination = "step_limit"
+        done = bool(termination)
         if train:
             next_row = encode_explore(next_state, cfg, explore_cfg)
             agent.update(row, action, reward, next_row, done)
 
-        steps += 1
         episode_return += reward
         if info["new_collision"]:
             collisions += 1
@@ -87,7 +91,6 @@ def run_explore_episode(
         state = next_state
         obs = next_obs
         if done:
-            termination = info["termination"]
             break
 
     env.stop()
@@ -147,8 +150,7 @@ def parser():
 
 
 # loads the configs and the Q-table, then runs the episodes in Gazebo
-def main():
-    args = parser().parse_args()
+def run(args):
     cfg = yaml.safe_load(Path(args.config).read_text())
     explore_cfg = yaml.safe_load(Path(args.explore_config).read_text())
     training = args.evaluate is None
@@ -166,7 +168,8 @@ def main():
 
     rng = np.random.default_rng(args.seed)
     count = num_explore_states(cfg, explore_cfg)
-    agent = QLearningAgent(count, explore_cfg["alpha"], explore_cfg["gamma"], rng)
+    agent = QLearningAgent(count, explore_cfg["alpha"], explore_cfg["gamma"], rng,
+                           metadata=checkpoint_spec(cfg, "explore", explore_cfg))
     table = args.resume
     if not training:
         table = args.evaluate
@@ -269,6 +272,13 @@ def main():
         rclpy.try_shutdown()
     print(json.dumps(summarize_explore(episodes), indent=1))
     return output
+
+
+def main():
+    from rl.ros.control_lock import exclusive_control
+    args = parser().parse_args()
+    with exclusive_control("exploration"):
+        run(args)
 
 
 if __name__ == "__main__":

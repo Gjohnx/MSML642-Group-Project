@@ -1,5 +1,34 @@
 services:
+  demo:
+    profiles: ["demo"]
+    build:
+      context: .
+      target: runtime
+    network_mode: "service:sim"
+    ipc: "service:sim"
+    depends_on:
+      - sim
+      - viewer
+    init: true
+    environment:
+      PYTHONPATH: /project
+      GZ_PARTITION: msml642
+      EXPLORE_TABLE: ${EXPLORE_TABLE:-rule}
+      CHASE_TABLE: ${CHASE_TABLE:-rule}
+    volumes:
+      - ./sim:/project/sim:ro
+      - ./rl:/project/rl:ro
+      - ./experiments:/project/experiments
+    working_dir: /project
+    command:
+      - bash
+      - -c
+      - >-
+        source /opt/ros/jazzy/setup.bash && python3 -m rl.demo --interactive
+        --explore-table "$${EXPLORE_TABLE:-rule}" --chase-table "$${CHASE_TABLE:-rule}"
+
   sim:
+    ipc: shareable
     build:
       context: .
       target: runtime
@@ -18,7 +47,7 @@ services:
     command: ["bash", "run.sh"]
 
   viewer:
-    profiles: ["gui"]
+    profiles: ["gui", "demo"]
     build:
       context: .
       target: viewer

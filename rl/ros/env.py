@@ -113,9 +113,12 @@ class ChaseEnv:
         self.collisions = CollisionCounter(cfg["max_collisions"])
         self.recovery = CollisionRecovery(**cfg.get("recovery", {}))
         self.routes = yaml.safe_load((Path(__file__).parents[2]/"sim/npc_routes.yaml").read_text())["routes"]
+        from rl.core.world import load_obstacles
+        self.obstacles = load_obstacles(Path(__file__).parents[2]/"sim/room.sdf")
         self.wait(lambda: self.fresh.ready() and self.velocity.get_subscription_count() > 0
                   and self.route_pub.get_subscription_count() > 0, 90, "ROS sensors or NPC patrol unavailable")
         self.steps = 0
+        self.interrupted = False
 
     def receive_pose(self, msg):
         from rl.core.geometry import pose_from_odom
@@ -150,6 +153,13 @@ class ChaseEnv:
     def stop(self):
         self.velocity.publish(self.Twist())
 
+    def interrupt(self):
+        """Stop an interactive demo action before its normal duration ends."""
+        self.interrupted = True
+        self.stop()
+        self.npc_velocity.publish(self.Twist())
+        self.route_pub.publish(self.String(data="pause"))
+
     def drive(self, linear, angular, seconds):
         cmd = self.Twist()
         cmd.linear.x, cmd.angular.z = float(linear), float(angular)
@@ -157,6 +167,8 @@ class ChaseEnv:
         deadline = time.monotonic() + max(30, seconds * 30)
         try:
             while self.sim_s < finish:
+                if self.interrupted:
+                    return
                 if time.monotonic() > deadline:
                     raise RuntimeError("Simulation clock stalled during action")
                 self.velocity.publish(cmd)
@@ -171,13 +183,24 @@ class ChaseEnv:
         x, y, yaw = pose
         request = (f'name: "{name}", position: {{x: {x}, y: {y}, z: 0.005}}, '
                    f'orientation: {{z: {math.sin(yaw/2)}, w: {math.cos(yaw/2)}}}')
-        result = subprocess.run(["gz", "service", "-s", "/world/room/set_pose",
+        command = ["gz", "service", "-s", "/world/room/set_pose",
             "--reqtype", "gz.msgs.Pose", "--reptype", "gz.msgs.Boolean",
-            "--timeout", "5000", "--req", request], capture_output=True, text=True, timeout=10)
-        if result.returncode or "true" not in result.stdout:
-            raise RuntimeError(f"Reset failed for {name}: {result.stdout} {result.stderr}")
+            "--timeout", "5000", "--req", request]
+        failure = ""
+        for attempt in range(3):
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+                if result.returncode == 0 and "true" in result.stdout:
+                    return
+                failure = f"{result.stdout} {result.stderr}"
+                if "timed out" not in failure.lower():
+                    break
+            except subprocess.TimeoutExpired:
+                failure = "Gazebo pose service timed out"
+        raise RuntimeError(f"Reset failed for {name} after bounded retries: {failure}")
 
     def reset(self, spawn=None, route=None):
+        self.interrupted = False
         spawn = self.cfg["spawns"][0] if spawn is None else spawn
         route = route or self.cfg.get("routes", ["workshop_visit"])[0]
         points = self.routes[route]["waypoints"]
@@ -205,8 +228,13 @@ class ChaseEnv:
         rays = scan_to_rays(self.scan)
         clear = clearances(rays, self.scan.range_max)
         visible, bearing, distance = detect(self.pose, self.npc_pose[:2], rays, **self.cfg["detector"])
+        from rl.core.world import line_of_sight
+        unobstructed = line_of_sight(self.pose[:2], self.npc_pose[:2], self.obstacles)
+        if not unobstructed:
+            visible, bearing, distance = False, None, None
         obs = Observation(visible, bearing, distance, clear["front"], clear["left"], clear["right"])
-        captured = math.dist(self.pose[:2], self.npc_pose[:2]) <= self.cfg["capture_distance_m"]
+        captured = (unobstructed and
+                    math.dist(self.pose[:2], self.npc_pose[:2]) <= self.cfg["capture_distance_m"])
         cell = self.cfg.get("exploration_cell_m", 2)
         info = dict(pose=self.pose, npc_pose=self.npc_pose, sim_s=self.sim_s,
                     region=(math.floor((self.pose[0]+8)/cell), math.floor((self.pose[1]+6)/cell)),
@@ -226,12 +254,15 @@ class ChaseEnv:
         new_collision = self.collisions.observe(self.contact)
         self.contact = False
         obs, info = self.observe()
-        if new_collision and not info["captured"] and not self.collisions.done:
+        recovered = new_collision and not info["captured"] and not self.collisions.done and not self.interrupted
+        if recovered:
             for command in self.recovery.plan(info["clearances"]):
+                if self.interrupted:
+                    break
                 self.drive(command.linear, command.angular, command.duration_s)
             obs, info = self.observe()
         self.steps += 1
-        info.update(new_collision=new_collision, shielded=shielded, steps=self.steps)
+        info.update(new_collision=new_collision, shielded=shielded, recovery_executed=recovered, steps=self.steps)
         info["termination"] = ("capture" if info["captured"] else "collisions" if self.collisions.done
                                else "step_limit" if self.steps >= self.cfg["max_steps"] else "")
         info["done"] = bool(info["termination"])

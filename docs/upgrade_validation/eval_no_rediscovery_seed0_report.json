@@ -1,0 +1,328 @@
+{
+ "schema": "msml642-chase-evaluation-v1",
+ "policy": "experiments/upgrade_validation/train_no_rediscovery_seed0/q_table.npy",
+ "command": "/project/rl/evaluate.py --max-steps 60 --seed 0 --episodes 6 --policy experiments/upgrade_validation/train_no_rediscovery_seed0/q_table.npy --output experiments/upgrade_validation/eval_no_rediscovery_seed0 --no-rediscovery-bonus",
+ "elapsed_wall_s": 25.56,
+ "elapsed_sim_s": 82.892,
+ "config": {
+  "environment": {
+   "seed": 0,
+   "episodes": 6,
+   "max_steps": 60,
+   "action_duration_s": 0.25,
+   "actions": {
+    "forward": {
+     "linear": 0.35,
+     "angular": 0.0
+    },
+    "turn_left": {
+     "linear": 0.0,
+     "angular": 0.6
+    },
+    "turn_right": {
+     "linear": 0.0,
+     "angular": -0.6
+    },
+    "stop": {
+     "linear": 0.0,
+     "angular": 0.0
+    }
+   },
+   "alpha": 0.1,
+   "gamma": 0.95,
+   "epsilon": {
+    "start": 1.0,
+    "end": 0.05,
+    "decay_episodes": 1500
+   },
+   "capture_distance_m": 0.5,
+   "max_collisions": 3,
+   "detector": {
+    "range_m": 4.0,
+    "fov_deg": 90
+   },
+   "obstacle_bins_m": [
+    0.4,
+    1.0
+   ],
+   "npc_distance_bins_m": [
+    1.0,
+    2.5
+   ],
+   "npc_front_half_deg": 15,
+   "safety": {
+    "robot_width_m": 0.33,
+    "clearance_margin": 0.12
+   },
+   "recovery": {
+    "backup_speed": 0.1,
+    "max_backup_m": 0.2,
+    "turn_deg": 35,
+    "rear_offset_m": 0.28
+   },
+   "lost_search": {
+    "scan_steps": 20,
+    "explore_front_m": 1.0
+   },
+   "exploration_cell_m": 2.0,
+   "spawns": [
+    [
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     -3.0,
+     -1.5,
+     0.0
+    ],
+    [
+     1.0,
+     1.5,
+     3.14159
+    ]
+   ],
+   "routes": [
+    "workshop_visit",
+    "corridor_loop"
+   ],
+   "spawn_sets": {
+    "tracking": {
+     "routes": [
+      "workshop_visit"
+     ],
+     "spawns": [
+      [
+       -3.0,
+       1.6,
+       0.0
+      ],
+      [
+       -2.5,
+       0.8,
+       0.49
+      ],
+      [
+       -2.0,
+       0.3,
+       0.75
+      ],
+      [
+       -3.6,
+       1.8,
+       -0.08
+      ]
+     ]
+    },
+    "heldout": {
+     "spawns": [
+      [
+       -5.5,
+       -1.2,
+       0.0
+      ],
+      [
+       5.5,
+       0.5,
+       3.14159
+      ],
+      [
+       -1.0,
+       -4.0,
+       1.5708
+      ]
+     ]
+    }
+   },
+   "lost_search_enabled": true
+  },
+  "rewards": {
+   "new_region": 0.2,
+   "new_region_enabled": true,
+   "first_detection": 5.0,
+   "rediscovery": 2.0,
+   "rediscovery_enabled": false,
+   "approach_clip": 1.0,
+   "lose_target": -1.0,
+   "lost_per_step": -0.05,
+   "collision": -5.0,
+   "capture": 30.0,
+   "time_step": -0.02,
+   "rediscovery_min_lost_steps": 5,
+   "max_rediscovery_rewards": 3
+  }
+ },
+ "summary": {
+  "episodes": 6,
+  "capture_rate": 0.5,
+  "mean_steps_to_first_detection": 6.0,
+  "mean_sim_s_to_first_detection": 1.8870000000000573,
+  "mean_steps_to_capture": 27.0,
+  "mean_sim_s_to_capture": 8.579333333333276,
+  "mean_collisions": 0.0,
+  "rediscovery_rate": 0.0,
+  "mean_return": 18.11571614741148,
+  "detection_rate": 0.6666666666666666,
+  "mean_shielded_rate": 0.0,
+  "mean_search_override_rate": 0.13333333333333333,
+  "mean_recovery_events": 0.0
+ },
+ "episodes": [
+  {
+   "episode": 0,
+   "seed": 0,
+   "spawn": "[0.0, 0.0, 0.0]",
+   "route": "workshop_visit",
+   "policy": "qlearning",
+   "steps": 24,
+   "episode_return": 36.22927392889088,
+   "path_length_m": 1.3020055530746075,
+   "collisions": 0,
+   "shielded_steps": 0,
+   "search_steps": 0,
+   "recovery_events": 0,
+   "captured": true,
+   "capture_step": 24,
+   "first_detection_step": 8,
+   "losses": 0,
+   "rediscoveries": 0,
+   "regions_visited": 2,
+   "termination": "capture",
+   "first_sim_s": 1115.03,
+   "last_sim_s": 1122.646,
+   "first_detection_sim_s": 1117.546,
+   "capture_sim_s": 1122.646,
+   "sim_elapsed_s": 7.6159999999999854
+  },
+  {
+   "episode": 1,
+   "seed": 0,
+   "spawn": "[-3.0, -1.5, 0.0]",
+   "route": "workshop_visit",
+   "policy": "qlearning",
+   "steps": 60,
+   "episode_return": 0.5199023797571223,
+   "path_length_m": 1.8526444416620707,
+   "collisions": 0,
+   "shielded_steps": 0,
+   "search_steps": 48,
+   "recovery_events": 0,
+   "captured": false,
+   "capture_step": null,
+   "first_detection_step": 2,
+   "losses": 1,
+   "rediscoveries": 0,
+   "regions_visited": 2,
+   "termination": "step_limit",
+   "first_sim_s": 1124.822,
+   "last_sim_s": 1143.93,
+   "first_detection_sim_s": 1125.434,
+   "capture_sim_s": null,
+   "sim_elapsed_s": 19.108000000000175
+  },
+  {
+   "episode": 2,
+   "seed": 0,
+   "spawn": "[1.0, 1.5, 3.14159]",
+   "route": "workshop_visit",
+   "policy": "qlearning",
+   "steps": 21,
+   "episode_return": 36.40084126658049,
+   "path_length_m": 0.7693790249286014,
+   "collisions": 0,
+   "shielded_steps": 0,
+   "search_steps": 0,
+   "recovery_events": 0,
+   "captured": true,
+   "capture_step": 21,
+   "first_detection_step": 0,
+   "losses": 0,
+   "rediscoveries": 0,
+   "regions_visited": 1,
+   "termination": "capture",
+   "first_sim_s": 1146.14,
+   "last_sim_s": 1152.838,
+   "first_detection_sim_s": 1146.14,
+   "capture_sim_s": 1152.838,
+   "sim_elapsed_s": 6.697999999999865
+  },
+  {
+   "episode": 3,
+   "seed": 0,
+   "spawn": "[0.0, 0.0, 0.0]",
+   "route": "corridor_loop",
+   "policy": "qlearning",
+   "steps": 60,
+   "episode_return": -0.6000000000000002,
+   "path_length_m": 0.3903313288052536,
+   "collisions": 0,
+   "shielded_steps": 0,
+   "search_steps": 0,
+   "recovery_events": 0,
+   "captured": false,
+   "capture_step": null,
+   "first_detection_step": null,
+   "losses": 0,
+   "rediscoveries": 0,
+   "regions_visited": 3,
+   "termination": "step_limit",
+   "first_sim_s": 1155.014,
+   "last_sim_s": 1173.952,
+   "first_detection_sim_s": null,
+   "capture_sim_s": null,
+   "sim_elapsed_s": 18.938000000000102
+  },
+  {
+   "episode": 4,
+   "seed": 0,
+   "spawn": "[-3.0, -1.5, 0.0]",
+   "route": "corridor_loop",
+   "policy": "qlearning",
+   "steps": 36,
+   "episode_return": 37.14427930924039,
+   "path_length_m": 1.639838165436653,
+   "collisions": 0,
+   "shielded_steps": 0,
+   "search_steps": 0,
+   "recovery_events": 0,
+   "captured": true,
+   "capture_step": 36,
+   "first_detection_step": 14,
+   "losses": 0,
+   "rediscoveries": 0,
+   "regions_visited": 2,
+   "termination": "capture",
+   "first_sim_s": 1176.128,
+   "last_sim_s": 1187.552,
+   "first_detection_sim_s": 1180.548,
+   "capture_sim_s": 1187.552,
+   "sim_elapsed_s": 11.423999999999978
+  },
+  {
+   "episode": 5,
+   "seed": 0,
+   "spawn": "[1.0, 1.5, 3.14159]",
+   "route": "corridor_loop",
+   "policy": "qlearning",
+   "steps": 60,
+   "episode_return": -1.0000000000000004,
+   "path_length_m": 1.0644698035362843,
+   "collisions": 0,
+   "shielded_steps": 0,
+   "search_steps": 0,
+   "recovery_events": 0,
+   "captured": false,
+   "capture_step": null,
+   "first_detection_step": null,
+   "losses": 0,
+   "rediscoveries": 0,
+   "regions_visited": 1,
+   "termination": "step_limit",
+   "first_sim_s": 1189.728,
+   "last_sim_s": 1208.836,
+   "first_detection_sim_s": null,
+   "capture_sim_s": null,
+   "sim_elapsed_s": 19.107999999999947
+  }
+ ]
+}

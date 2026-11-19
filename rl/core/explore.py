@@ -168,6 +168,8 @@ class ExploreThenChase:
             obs, self.areas.steps_since_new, self.cfg, self.explore_cfg
         )
         row = encode_explore(state, self.cfg, self.explore_cfg)
+        if not isinstance(self.explore_agent, QLearningAgent):
+            return self.explore_agent.act((0, NONE, NONE, NONE, *state[:3]))
         return self.explore_agent.greedy(row)
 
     # same rule as the training runner: the shared lost-target search takes over

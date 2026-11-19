@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from rl.core.agent import QLearningAgent, epsilon_schedule
+from rl.core.agent import QLearningAgent, epsilon_schedule, checkpoint_spec
 from rl.core.baselines import RandomPolicy, RuleBasedTracker
 from rl.core.behaviors import LostTargetSearch
 from rl.core.rewards import RewardTracker
@@ -44,7 +44,8 @@ def run_episode(env, policy, cfg, rewards, episode, seed, spawn, route, epsilon=
         else:
             action = policy.act(state)
         # A shared search routine uses only the last observed direction and lidar.
-        if not obs.npc_visible and last_seen != NONE and cfg.get("lost_search_enabled", True):
+        search_override = not obs.npc_visible and last_seen != NONE and cfg.get("lost_search_enabled", True)
+        if search_override:
             action = search.next_action(last_seen, env.observe()[1]["clearances"])
         else:
             search.reset()
@@ -59,7 +60,8 @@ def run_episode(env, policy, cfg, rewards, episode, seed, spawn, route, epsilon=
         metrics.observe_pose(*info["pose"][:2], info["sim_s"])
         metrics.observe_step(visible=next_obs.npc_visible, reward=reward,
             new_collision=info["new_collision"], captured=info["captured"],
-            region=info["region"], sim_s=info["sim_s"])
+            region=info["region"], sim_s=info["sim_s"], shielded=info.get("shielded", False),
+            search_override=search_override, recovered=info.get("recovery_executed", False))
         if trace:
             trace.write(json.dumps(dict(episode=episode, step=metrics.steps, action=action,
                 visible=next_obs.npc_visible, reward=reward, rewards=breakdown, **info))+"\n")
@@ -100,6 +102,12 @@ def parser(training=False):
 
 
 def run(args, training=False):
+    from rl.ros.control_lock import exclusive_control
+    with exclusive_control("training" if training else "evaluation"):
+        return _run(args, training)
+
+
+def _run(args, training=False):
     import rclpy
     from rclpy.node import Node
     from rl.ros.env import ChaseEnv
@@ -150,7 +158,8 @@ def run(args, training=False):
     if not training and args.policy in ("rule", "random"):
         policy = RuleBasedTracker() if args.policy == "rule" else RandomPolicy(rng)
     else:
-        policy = QLearningAgent(num_states(cfg), cfg["alpha"], cfg["gamma"], rng)
+        policy = QLearningAgent(num_states(cfg), cfg["alpha"], cfg["gamma"], rng,
+                                metadata=checkpoint_spec(cfg, "chase"))
         table = args.resume if training else args.policy
         if table:
             policy.load(table)

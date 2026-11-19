@@ -9,7 +9,7 @@ in docs/phase1. The capture clip uses the rule-based baseline with the NPC initi
 The following training clip shows early Q-learning behavior. The 12-episode debugging run
 did not achieve capture. Full training and comparative experiments remain Phase 2 work.
 
-The scene is a 16 脳 12 m indoor facility. A central corridor connects four areas through doorways. Partitions, barriers, crates, drums, cabinets and a workbench all take part in collisions and range sensing. A blue differential-drive robot starts in the middle of the corridor and carries a 360掳 laser rangefinder. Docker Desktop runs Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic in a Linux container. Gazebo uses headless software rendering, and ROS 2 commands run inside the container.
+The scene is a 16 by 12 m indoor facility. A central corridor connects four areas through doorways. Partitions, barriers, crates, drums, cabinets and a workbench all take part in collisions and range sensing. A blue differential-drive robot starts in the middle of the corridor and carries a 360-degree laser rangefinder. Docker Desktop runs Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic in a Linux container. Gazebo uses headless software rendering, and ROS 2 commands run inside the container.
 
 ## Quick start for team members
 
@@ -152,25 +152,40 @@ Start sets are listed under `spawn_sets` in rl/config/qlearning.yaml. `heldout` 
 
 ## Explore-then-chase demo
 
-The robot explores with its own exploration Q-table until someone clicks **Chase** in the Gazebo window, then chases the NPC with the trained chase Q-table. The exploration state has only the lidar obstacle levels and how long since the robot reached a new area (from its own wheel odometry), so it never chases on its own. The last-seen direction of the NPC is still tracked, so the chase starts knowing which way to turn.
+The robot explores until someone clicks **Chase** in the Gazebo window, then starts pursuing the NPC. Each stage can use a rule-based policy or a trained Q-table. The exploration state has only the lidar obstacle levels and how long since the robot reached a new area (from its own wheel odometry), so it never chases on its own. The last-seen direction of the NPC is still tracked, so the chase starts knowing which way to turn.
 
-The Gazebo window includes a **Chase** button in both the standard and demo views. Rebuild the viewer to install the GUI plugin:
+Run the interactive demo with one command:
 
 ```sh
-docker compose --profile gui up -d --build
+docker compose --profile demo up -d --build
 ```
 
-Start rl.demo with the exploration and chase tables using the command below. The button becomes available when the demo enters exploration. Seeing the NPC does not switch modes. Clicking **Chase** sends one request and starts pursuit. The panel shows the mode reported by the running demo and disables the button during chase or when no demo is running. Restarting the demo returns to exploration.
+Open the browser GUI at http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=scale. The default demo uses rule-based exploration and tracking, so it runs without trained model files. The panel labels the selected policies. Exploration ignores the NPC until **Chase** is pressed. **Stop** halts both robots. **Reset** starts a new episode in exploration mode. After capture or the step limit, the interactive demo waits for Reset.
+
+The panel shows target visibility, collisions, steps, simulation time and policy type. Both the standard and demo camera views include the controls. Stop the demo controller before starting any training or evaluation process:
+
+```sh
+docker compose stop demo
+```
+
+Training, exploration, evaluation and demo entry points share a controller lock. A second controller exits with a clear message instead of issuing competing motion commands.
+
+To use learned policies, put these paths in a project-root .env file, then rerun the same Compose command:
+
+```text
+EXPLORE_TABLE=experiments/explore_seed0/q_table.npy
+CHASE_TABLE=experiments/stage2_seed0/q_table.npy
+```
 
 The learner moves forward at 0.35 m/s. Both NPC patrol routes use 0.15 m/s. The learner's lidar covers 360 degrees with 360 samples. The target detector uses its configured range and field of view.
 
-The button sends a Gazebo Transport message on /demo/chase, bridged to ROS 2. /demo/mode carries demo status back to the GUI. For headless testing, send the same request from a terminal:
+The GUI sends Chase on /demo/chase and Stop or Reset on /demo/control. /demo/mode and /demo/status carry the current mode and measurements back to the panel. For headless testing, send the same request from a terminal:
 
 ```sh
 docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && ros2 topic pub --once /demo/chase std_msgs/msg/String "{data: chase}"'
 ```
 
-Train the exploration Q-table, then run the demo (`--chase-table rule` tests it with the rule-based tracker, `--chase-after N` presses Chase automatically):
+After stopping the demo service, train the exploration Q-table, then run the demo (`--chase-table rule` tests it with the rule-based tracker, `--chase-after N` presses Chase automatically):
 
 ```sh
 docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.explore --episodes 150 --output experiments/explore_seed0'
@@ -192,3 +207,19 @@ docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project
 ```
 
 The recording is saved to experiments/gazebo-demo.mp4 on the host. Replace rule with a saved Q-table path to demonstrate a learned policy. Include the policy name and training budget when presenting a recording.
+
+## Checkpoint compatibility and intervention metrics
+
+New Q-tables save a matching .meta.json file containing the state-encoding version, policy type, observation bins, action definitions and a SHA-256 checksum. Keep the pair together when copying models. Loading rejects mismatched settings, corrupted pairs, wrong shapes and non-finite values. Historical .npy files still load, with a warning when configuration metadata is unavailable.
+
+Episode CSVs and reports include shielded_steps, search_steps and recovery_events. Evaluation reports include their mean rates or counts. These show how much the shared safety and search routines intervene. The counters can overlap, so their percentages should not be added together.
+
+Capture requires both a distance of at most 0.5 m and a clear segment between the robots in the static collision map. Static geometry is used only by the sensor simulator and result checks. It is excluded from policy state. Upright static boxes and cylinders are supported by the visibility map.
+
+The experiment suite can run a tracking curriculum before each variant's full-map training:
+
+```sh
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && cd /project && python3 -m rl.experiment --tracking-episodes 300 --episodes 500 --eval-episodes 30 --seeds 0 1 2 --heldout --ablations'
+```
+
+This is a longer experiment, separate from the short validation run recorded in docs/UPGRADE_NOTES.md.

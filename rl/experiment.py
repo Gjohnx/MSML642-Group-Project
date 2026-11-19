@@ -9,6 +9,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--seeds", nargs="+", type=int, default=[0, 1])
     p.add_argument("--episodes", type=int, default=20)
+    p.add_argument("--tracking-episodes", type=int, default=0,
+                   help="optional tracking curriculum before full-map training")
     p.add_argument("--eval-episodes", type=int, default=6)
     p.add_argument("--max-steps", type=int, default=120)
     p.add_argument("--output", default="experiments/suite")
@@ -25,8 +27,17 @@ def main():
         for variant, flags in [("full", []), *([("no_exploration", ["--no-exploration-bonus"]),
                     ("no_rediscovery", ["--no-rediscovery-bonus"])] if args.ablations else [])]:
             train = root/f"train_{variant}_seed{seed}"
+            resume = []
+            if args.tracking_episodes > 0:
+                tracking = root/f"tracking_{variant}_seed{seed}"
+                command("rl.train", "--seed", seed, "--episodes", args.tracking_episodes,
+                    "--spawn-set", "tracking", "--epsilon-decay-episodes",
+                    max(1, int(args.tracking_episodes * .75)), "--output", tracking, *flags)
+                resume = ["--resume", tracking/"q_table.npy", "--epsilon-start", .3]
+                plots.append(tracking)
             command("rl.train", "--seed", seed, "--episodes", args.episodes,
-                    "--epsilon-decay-episodes", max(1, int(args.episodes * 0.75)), "--output", train, *flags)
+                    "--epsilon-decay-episodes", max(1, int(args.episodes * 0.75)),
+                    "--output", train, *resume, *flags)
             evaluate = root/f"eval_{variant}_seed{seed}"
             command("rl.evaluate", "--seed", seed, "--episodes", args.eval_episodes,
                     "--policy", train/"q_table.npy", "--output", evaluate, *flags)

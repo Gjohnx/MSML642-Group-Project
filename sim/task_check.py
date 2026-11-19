@@ -25,6 +25,14 @@ def main():
         env.set_pose("npc", [3, 0, 0])
         env.drive(0, 0, 0.6)
         assert not env.observe()[0].npc_visible, "Target behind aisle barrier should be occluded"
+        env.reset(spawn=[0, 2.12, 1.570796], route="workshop_visit")
+        env.route_pub.publish(env.String(data="pause"))
+        env.drive(0, 0, 0.2)
+        env.set_pose("npc", [0, 2.60, 0])
+        env.wait(lambda: abs(env.npc_pose[1]-2.60) < .05, 10, "NPC wall-test pose unavailable")
+        env.drive(0, 0, .3)
+        blocked, info = env.observe()
+        assert not blocked.npc_visible and not info["captured"], "Capture crossed a partition"
         obs = env.reset(spawn=[-1.56, 1.6, 0], route="workshop_visit")
         captured = False
         for _ in range(12):
@@ -39,7 +47,7 @@ def main():
         assert env.contact, "Body contact sensor did not report the aisle barrier"
         _, info = env.step(STOP)
         assert info["new_collision"] and info["collisions"] == 1, "Contact was not counted/recovered"
-        print("PASS: visible/hidden/occluded target, reset, moving-target capture, contact and recovery")
+        print("PASS: visible/hidden/occluded target, no capture through walls, reset, moving-target capture, contact and recovery")
     finally:
         if env:
             env.close()

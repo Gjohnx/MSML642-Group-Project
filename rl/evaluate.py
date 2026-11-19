@@ -93,6 +93,11 @@ def summarize(episodes):
     summary["rediscovery_rate"] = rediscovery_rate
     summary["mean_return"] = mean_of(returns)
     summary["detection_rate"] = mean_of(detected)
+    summary["mean_shielded_rate"] = mean_of(
+        e["shielded_steps"]/e["steps"] for e in episodes if e.get("steps") and "shielded_steps" in e)
+    summary["mean_search_override_rate"] = mean_of(
+        e["search_steps"]/e["steps"] for e in episodes if e.get("steps") and "search_steps" in e)
+    summary["mean_recovery_events"] = mean_of(e.get("recovery_events") for e in episodes)
     return summary
 
 
