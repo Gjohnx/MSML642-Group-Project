@@ -35,9 +35,12 @@ STATUS_EVERY_STEPS = 10
 # chase_requested() returns True once the Chase button has been pressed
 # get_odometry returns the robot's (x, y) from wheel odometry
 # returns a summary dict, and calls log(dict) once per step if given
-def run_demo(env, controller, get_odometry, chase_requested, max_steps, log=None):
+def run_demo(env, controller, get_odometry, chase_requested, max_steps, log=None,
+             on_mode=None):
     obs = env.reset()
     controller.reset()
+    if on_mode is not None:
+        on_mode(EXPLORE)
     x, y = get_odometry()
     controller.observe_odometry(x, y)
     first_obs, info = env.observe()
@@ -49,6 +52,8 @@ def run_demo(env, controller, get_odometry, chase_requested, max_steps, log=None
     while steps < max_steps:
         if controller.mode == EXPLORE and chase_requested():
             controller.request_chase(steps)
+            if on_mode is not None:
+                on_mode(CHASE)
             print(
                 f"[demo] step {steps}: Chase pressed, switching to chase mode",
                 flush=True,
@@ -109,7 +114,8 @@ class ChaseButton:
         self.checks = 0
 
     def receive(self, msg):
-        self.pressed = True
+        if msg.data.strip().lower() == "chase":
+            self.pressed = True
 
     # checked once per step by run_demo
     def requested(self):
@@ -214,6 +220,16 @@ def main():
     node = Node("explore_then_chase_demo")
     button = ChaseButton(args.chase_after)
     node.create_subscription(String, CHASE_TOPIC, button.receive, 10)
+    mode_pub = node.create_publisher(String, "/demo/mode", 10)
+    mode = "idle"
+
+    def publish_mode(value=None):
+        nonlocal mode
+        if value is not None:
+            mode = value
+        mode_pub.publish(String(data=mode))
+
+    node.create_timer(0.5, publish_mode)
     env = None
     started = time.monotonic()
     try:
@@ -226,9 +242,11 @@ def main():
         with (output / "trace.jsonl").open("w") as trace:
             writer = TraceWriter(trace)
             summary = run_demo(
-                env, controller, odometry.xy, button.requested, max_steps, writer.log
+                env, controller, odometry.xy, button.requested, max_steps, writer.log,
+                on_mode=publish_mode
             )
     finally:
+        publish_mode("idle")
         if env is not None:
             env.close()
         node.destroy_node()

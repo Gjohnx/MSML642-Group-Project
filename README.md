@@ -9,7 +9,7 @@ in docs/phase1. The capture clip uses the rule-based baseline with the NPC initi
 The following training clip shows early Q-learning behavior. The 12-episode debugging run
 did not achieve capture. Full training and comparative experiments remain Phase 2 work.
 
-The scene is a 16 × 12 m indoor facility. A central corridor connects four areas through doorways. Partitions, barriers, crates, drums, cabinets and a workbench all take part in collisions and range sensing. A blue differential-drive robot starts in the middle of the corridor and carries a 360° laser rangefinder. Docker Desktop runs Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic in a Linux container. Gazebo uses headless software rendering, and ROS 2 commands run inside the container.
+The scene is a 16 脳 12 m indoor facility. A central corridor connects four areas through doorways. Partitions, barriers, crates, drums, cabinets and a workbench all take part in collisions and range sensing. A blue differential-drive robot starts in the middle of the corridor and carries a 360掳 laser rangefinder. Docker Desktop runs Ubuntu 24.04, ROS 2 Jazzy and Gazebo Harmonic in a Linux container. Gazebo uses headless software rendering, and ROS 2 commands run inside the container.
 
 ## Quick start for team members
 
@@ -154,23 +154,21 @@ Start sets are listed under `spawn_sets` in rl/config/qlearning.yaml. `heldout` 
 
 The robot explores with its own exploration Q-table until someone clicks **Chase** in the Gazebo window, then chases the NPC with the trained chase Q-table. The exploration state has only the lidar obstacle levels and how long since the robot reached a new area (from its own wheel odometry), so it never chases on its own. The last-seen direction of the NPC is still tracked, so the chase starts knowing which way to turn.
 
-Chase button: add Gazebo's Publisher panel to `sim/demo_gui.config` and bridge its topic in `sim/bridge.yaml`:
+The Gazebo window includes a **Chase** button in both the standard and demo views. Rebuild the viewer to install the GUI plugin:
 
-```xml
-<plugin filename="Publisher" name="Chase button">
-  <gz-gui><title>Chase</title><property type="string" key="state">docked</property></gz-gui>
-</plugin>
+```sh
+docker compose --profile gui up -d --build
 ```
 
-```yaml
-- ros_topic_name: /demo/chase
-  gz_topic_name: /demo/chase
-  ros_type_name: std_msgs/msg/String
-  gz_type_name: gz.msgs.StringMsg
-  direction: GZ_TO_ROS
-```
+Start rl.demo with the exploration and chase tables using the command below. The button becomes available when the demo enters exploration. Seeing the NPC does not switch modes. Clicking **Chase** sends one request and starts pursuit. The panel shows the mode reported by the running demo and disables the button during chase or when no demo is running. Restarting the demo returns to exploration.
 
-In the panel, set message type `gz.msgs.StringMsg`, message `data: "chase"` and topic `/demo/chase`, then click Publish. The same signal can be sent from a terminal: `ros2 topic pub --once /demo/chase std_msgs/msg/String "{data: chase}"`.
+The learner moves forward at 0.35 m/s. Both NPC patrol routes use 0.15 m/s. The learner's lidar covers 360 degrees with 360 samples. The target detector uses its configured range and field of view.
+
+The button sends a Gazebo Transport message on /demo/chase, bridged to ROS 2. /demo/mode carries demo status back to the GUI. For headless testing, send the same request from a terminal:
+
+```sh
+docker compose exec sim bash -c 'source /opt/ros/jazzy/setup.bash && ros2 topic pub --once /demo/chase std_msgs/msg/String "{data: chase}"'
+```
 
 Train the exploration Q-table, then run the demo (`--chase-table rule` tests it with the rule-based tracker, `--chase-after N` presses Chase automatically):
 

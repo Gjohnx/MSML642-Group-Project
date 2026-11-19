@@ -11,8 +11,9 @@ sed -e 's@<camera_pose>.*</camera_pose>@<camera_pose>-9 -10.5 12.75 0 0.74 0.86<
     -e 's@<height>845</height>@<height>850</height>@' "$config" > "$preview"
 
 if [[ "${GAZEBO_DEMO_VIEW:-0}" == "1" ]]; then
-    preview="/project/sim/demo_gui.config"
+    cat /project/sim/demo_gui.config > "$preview"
 fi
+cat /project/sim/chase_gui.config >> "$preview"
 
 gz sim -g -v 3 --gui-config "$preview" &
 gui_pid=$!

@@ -5,6 +5,7 @@ Run from the repo root:  python3 -m pytest rl/tests
 
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -262,7 +263,9 @@ def test_reset_returns_to_exploring():
 def test_chase_button():
     button = ChaseButton()
     assert not button.requested()
-    button.receive(None)
+    button.receive(SimpleNamespace(data="ignored"))
+    assert not button.requested()
+    button.receive(SimpleNamespace(data="chase"))
     assert button.requested()
     automatic = ChaseButton(chase_after=2)
     results = []
@@ -322,9 +325,12 @@ def test_demo_explores_then_captures_after_chase_is_pressed():
     )
     button = ChaseButton(chase_after=8)
     records = []
+    modes = []
     summary = run_demo(
-        env, controller, env.odometry, button.requested, 200, records.append
+        env, controller, env.odometry, button.requested, 200, records.append,
+        on_mode=modes.append
     )
+    assert modes == [EXPLORE, CHASE]
     assert summary["termination"] == "capture"
     assert summary["switch_step"] == 8
     assert summary["chase_steps"] > 0

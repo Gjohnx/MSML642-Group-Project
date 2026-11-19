@@ -86,14 +86,17 @@ class RobotCheck(Node):
             "Missing ROS bridge, lidar, or odometry.",
         )
         start = self.odom
+        covered_angle = len(self.scan.ranges) * abs(self.scan.angle_increment)
+        if len(self.scan.ranges) != 360 or covered_angle < 2 * math.pi - 0.02:
+            raise RuntimeError("Expected a full 360-degree scan with 360 samples.")
         initial_range = self.front_range()
         if not 1.6 < initial_range < 2.1:
             raise RuntimeError(f"Expected a wall near 1.8 m, got {initial_range:.2f} m.")
 
-        self.drive(0.25, 0.0, 1.5)
+        self.drive(0.35, 0.0, 1.5)
         forward = self.odom.pose.pose.position.x - start.pose.pose.position.x
         final_range = self.front_range()
-        if forward < 0.2 or not initial_range - final_range > 0.15:
+        if forward < 0.4 or not initial_range - final_range > 0.35:
             raise RuntimeError(
                 f"Forward command failed: odom dx={forward:.2f} m, "
                 f"lidar={initial_range:.2f} -> {final_range:.2f} m."
@@ -114,7 +117,7 @@ class RobotCheck(Node):
             raise RuntimeError("Robot did not stop.")
 
         print(
-            f"PASS: forward {forward:.2f} m, wall {initial_range:.2f} -> "
+            f"PASS: 360-degree lidar, forward at 0.35 m/s for {forward:.2f} m, wall {initial_range:.2f} -> "
             f"{final_range:.2f} m, left {left:.2f} rad, right {right:.2f} rad, stopped."
         )
 

@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="ChaseButton/">
+    <file>ChaseButton.qml</file>
+  </qresource>
+</RCC>
